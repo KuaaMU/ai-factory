@@ -77,7 +77,8 @@ AI Factory is a **desktop application** that bootstraps fully autonomous AI comp
 Grab the latest release from [GitHub Releases](https://github.com/KuaaMU/ai-factory/releases):
 
 - **Windows**: `AI Factory_x.x.x_x64-setup.exe` (NSIS) or `.msi`
-- **macOS / Linux**: coming soon
+- **macOS**: `.dmg` (Apple Silicon + Intel) - via CI/CD
+- **Linux**: `.AppImage` / `.deb` - via CI/CD
 
 ### Prerequisites
 
@@ -205,20 +206,30 @@ npm run tauri build
 - [x] 6 color themes (dark + light)
 - [x] MCP server integration
 - [x] Remote skill repository browser
-- [ ] macOS & Linux builds
+- [x] macOS & Linux builds (CI/CD)
 - [ ] Agent performance analytics dashboard
 - [ ] Cost tracking & budget visualization
 - [ ] Plugin system for custom engines
 - [ ] Skill marketplace (community-driven)
 - [ ] Real-time agent collaboration view
 
+## Star History
+
+<a href="https://star-history.com/#KuaaMU/ai-factory&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=KuaaMU/ai-factory&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=KuaaMU/ai-factory&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=KuaaMU/ai-factory&type=Date" />
+ </picture>
+</a>
+
 ## License
 
-MIT
+[MIT](LICENSE)
 
 ---
 
 <p align="center">
   <sub>Built with Tauri, React, and a lot of autonomous agents.</sub><br/>
-  <sub>If this project is useful to you, please consider giving it a star.</sub>
+  <sub>If this project is useful to you, please consider giving it a <a href="https://github.com/KuaaMU/ai-factory">star</a>.</sub>
 </p>
