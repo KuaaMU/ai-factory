@@ -1,36 +1,36 @@
 <p align="center">
-  <img src="app/src-tauri/icons/icon.png" width="120" alt="AI Factory Logo" />
+  <img src="app/src-tauri/icons/icon.png" width="120" alt="Omnihive Logo" />
 </p>
 
-<h1 align="center">AI Factory</h1>
+<h1 align="center">Omnihive</h1>
 
 <p align="center">
-  <strong>One sentence in, an autonomous AI company out.</strong><br/>
-  Seed Prompt &rarr; Agent Team &rarr; Autonomous Loop &rarr; Self-Evolving Company
+  <strong>One prompt, infinite agents.</strong><br/>
+  Seed Prompt &rarr; Agent Swarm &rarr; Autonomous Loop &rarr; Self-Evolving Company
 </p>
 
 <p align="center">
-  <a href="https://github.com/KuaaMU/ai-factory/releases"><img src="https://img.shields.io/github/v/release/KuaaMU/ai-factory?style=flat-square&color=blue" alt="Release" /></a>
-  <a href="https://github.com/KuaaMU/ai-factory/blob/main/LICENSE"><img src="https://img.shields.io/github/license/KuaaMU/ai-factory?style=flat-square" alt="License" /></a>
-  <a href="https://github.com/KuaaMU/ai-factory/stargazers"><img src="https://img.shields.io/github/stars/KuaaMU/ai-factory?style=flat-square" alt="Stars" /></a>
+  <a href="https://github.com/KuaaMU/omnihive/releases"><img src="https://img.shields.io/github/v/release/KuaaMU/omnihive?style=flat-square&color=blue" alt="Release" /></a>
+  <a href="https://github.com/KuaaMU/omnihive/blob/main/LICENSE"><img src="https://img.shields.io/github/license/KuaaMU/omnihive?style=flat-square" alt="License" /></a>
+  <a href="https://github.com/KuaaMU/omnihive/stargazers"><img src="https://img.shields.io/github/stars/KuaaMU/omnihive?style=flat-square" alt="Stars" /></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-brightgreen?style=flat-square" alt="Platform" />
   <img src="https://img.shields.io/badge/built%20with-Tauri%202%20%2B%20React-orange?style=flat-square" alt="Tech" />
 </p>
 
 ---
 
-## What is AI Factory?
+## What is Omnihive?
 
-AI Factory is a **desktop application** that bootstraps fully autonomous AI companies from a single seed prompt. It orchestrates multi-agent teams powered by Claude Code, Codex CLI, or OpenCode, running 24/7 autonomous loops with shared consensus memory.
+Omnihive is a **desktop application** that bootstraps fully autonomous AI companies from a single seed prompt. It orchestrates multi-agent swarms powered by Claude Code, Codex CLI, or OpenCode, running 24/7 autonomous loops with shared consensus memory.
 
-**Think of it as:** a visual control tower for spawning and managing AI agent swarms that build real software products.
+**Think of it as:** a visual control tower for spawning and managing AI agent hives that build real software products.
 
 ```
 "Build a time-tracking SaaS for freelancers"
                     |
-        AI Factory analyzes domain
+          Omnihive analyzes domain
                     |
-   Generates 12-agent team (CEO, CTO, Fullstack, DevOps, QA...)
+   Generates 12-agent swarm (CEO, CTO, Fullstack, DevOps, QA...)
                     |
      Starts autonomous build loop with consensus
                     |
@@ -74,9 +74,9 @@ AI Factory is a **desktop application** that bootstraps fully autonomous AI comp
 
 ### Download
 
-Grab the latest release from [GitHub Releases](https://github.com/KuaaMU/ai-factory/releases):
+Grab the latest release from [GitHub Releases](https://github.com/KuaaMU/omnihive/releases):
 
-- **Windows**: `AI Factory_x.x.x_x64-setup.exe` (NSIS) or `.msi`
+- **Windows**: `Omnihive_x.x.x_x64-setup.exe` (NSIS) or `.msi`
 - **macOS**: `.dmg` (Apple Silicon + Intel) - via CI/CD
 - **Linux**: `.AppImage` / `.deb` - via CI/CD
 
@@ -92,7 +92,7 @@ You need at least one AI coding CLI installed:
 
 ### First Run
 
-1. Open AI Factory
+1. Open Omnihive
 2. Go to **Settings > AI Providers** > click "Detect Configurations" to auto-import your API keys
 3. Go to **Settings > System** > click "Refresh" to verify your CLI tools are detected
 4. Click **New Project**, enter your seed prompt, and follow the wizard
@@ -138,7 +138,7 @@ You need at least one AI coding CLI installed:
 ## Project Structure
 
 ```
-ai-factory/
+omnihive/
 ├── .github/                       # CI/CD & community
 │   ├── workflows/build.yml        # Cross-platform build (Windows/macOS/Linux)
 │   └── FUNDING.yml                # GitHub Sponsors
@@ -178,9 +178,10 @@ ai-factory/
 
 ## Contributing
 
-Contributions are welcome! Here are some areas where help is needed:
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
-- **macOS / Linux builds** - CI/CD for cross-platform releases
+Areas where help is needed:
+
 - **New personas & skills** - expand the built-in library
 - **MCP server integrations** - add more preset MCP configurations
 - **UI/UX improvements** - better data visualization for agent activity
@@ -189,14 +190,10 @@ Contributions are welcome! Here are some areas where help is needed:
 ### Development Setup
 
 ```bash
-# Clone the repo
-git clone https://github.com/KuaaMU/ai-factory.git
-cd ai-factory/app
+git clone https://github.com/KuaaMU/omnihive.git
+cd omnihive/app
 
-# Install frontend dependencies
 npm install
-
-# Run in development mode
 npm run tauri dev
 
 # Build for production
@@ -222,11 +219,11 @@ npm run tauri build
 
 ## Star History
 
-<a href="https://star-history.com/#KuaaMU/ai-factory&Date">
+<a href="https://star-history.com/#KuaaMU/omnihive&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=KuaaMU/ai-factory&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=KuaaMU/ai-factory&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=KuaaMU/ai-factory&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=KuaaMU/omnihive&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=KuaaMU/omnihive&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=KuaaMU/omnihive&type=Date" />
  </picture>
 </a>
 
@@ -238,5 +235,5 @@ npm run tauri build
 
 <p align="center">
   <sub>Built with Tauri, React, and a lot of autonomous agents.</sub><br/>
-  <sub>If this project is useful to you, please consider giving it a <a href="https://github.com/KuaaMU/ai-factory">star</a>.</sub>
+  <sub>If this project is useful to you, please consider giving it a <a href="https://github.com/KuaaMU/omnihive">star</a>.</sub>
 </p>

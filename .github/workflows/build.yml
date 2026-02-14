@@ -41,7 +41,7 @@ jobs:
           projectPath: app
           tagName: ${{ github.ref_name }}
           releaseName: ${{ github.ref_name }}
-          releaseBody: "See the [full changelog](https://github.com/KuaaMU/ai-factory/blob/main/CHANGELOG.md)."
+          releaseBody: "See the [full changelog](https://github.com/KuaaMU/omnihive/blob/main/CHANGELOG.md)."
           releaseDraft: false
           prerelease: false
 
@@ -79,7 +79,7 @@ jobs:
           projectPath: app
           tagName: ${{ github.ref_name }}
           releaseName: ${{ github.ref_name }}
-          releaseBody: "See the [full changelog](https://github.com/KuaaMU/ai-factory/blob/main/CHANGELOG.md)."
+          releaseBody: "See the [full changelog](https://github.com/KuaaMU/omnihive/blob/main/CHANGELOG.md)."
           releaseDraft: false
           prerelease: false
           args: --target aarch64-apple-darwin
@@ -94,7 +94,7 @@ jobs:
           projectPath: app
           tagName: ${{ github.ref_name }}
           releaseName: ${{ github.ref_name }}
-          releaseBody: "See the [full changelog](https://github.com/KuaaMU/ai-factory/blob/main/CHANGELOG.md)."
+          releaseBody: "See the [full changelog](https://github.com/KuaaMU/omnihive/blob/main/CHANGELOG.md)."
           releaseDraft: false
           prerelease: false
           args: --target x86_64-apple-darwin
@@ -136,6 +136,6 @@ jobs:
           projectPath: app
           tagName: ${{ github.ref_name }}
           releaseName: ${{ github.ref_name }}
-          releaseBody: "See the [full changelog](https://github.com/KuaaMU/ai-factory/blob/main/CHANGELOG.md)."
+          releaseBody: "See the [full changelog](https://github.com/KuaaMU/omnihive/blob/main/CHANGELOG.md)."
           releaseDraft: false
           prerelease: false

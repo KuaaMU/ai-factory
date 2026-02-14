@@ -14,7 +14,7 @@ fn github_contents_url(owner: &str, repo: &str, path: &str, branch: &str) -> Str
 fn github_api_get(url: &str) -> Result<serde_json::Value, String> {
     let resp = ureq::get(url)
         .set("Accept", "application/vnd.github.v3+json")
-        .set("User-Agent", "ai-factory")
+        .set("User-Agent", "omnihive")
         .call()
         .map_err(|e| format!("GitHub API error: {}", e))?;
     resp.into_json::<serde_json::Value>()
@@ -23,7 +23,7 @@ fn github_api_get(url: &str) -> Result<serde_json::Value, String> {
 
 fn github_raw_get(url: &str) -> Result<String, String> {
     let resp = ureq::get(url)
-        .set("User-Agent", "ai-factory")
+        .set("User-Agent", "omnihive")
         .call()
         .map_err(|e| format!("Download error: {}", e))?;
     resp.into_string()
@@ -195,7 +195,7 @@ pub fn install_repo_skill(repo_id: String, skill_path: String) -> Result<SkillIn
     // Create the local skill directory
     let install_dir = dirs::data_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("ai-factory")
+        .join("omnihive")
         .join("custom-skills")
         .join(&skill_name);
 

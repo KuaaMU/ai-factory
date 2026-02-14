@@ -49,7 +49,7 @@ export function Sidebar() {
   };
 
   const handleDownloadUpdate = () => {
-    open(`https://github.com/KuaaMU/ai-factory/releases/tag/v${updateVersion}`);
+    open(`https://github.com/KuaaMU/omnihive/releases/tag/v${updateVersion}`);
   };
 
   return (
@@ -57,7 +57,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="flex items-center gap-2 border-b px-4 py-4">
         <Factory className="h-6 w-6 text-primary" />
-        <span className="text-lg font-semibold">AI Factory</span>
+        <span className="text-lg font-semibold">Omnihive</span>
       </div>
 
       {/* Navigation */}
@@ -94,7 +94,7 @@ export function Sidebar() {
 
         {/* GitHub link */}
         <button
-          onClick={() => open("https://github.com/KuaaMU/ai-factory")}
+          onClick={() => open("https://github.com/KuaaMU/omnihive")}
           className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
         >
           <Github className="h-4 w-4" />

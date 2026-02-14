@@ -1,4 +1,4 @@
-# Contributing to AI Factory
+# Contributing to Omnihive
 
 Thanks for your interest in contributing! This guide will help you get started.
 
@@ -13,8 +13,8 @@ Thanks for your interest in contributing! This guide will help you get started.
 ### Setup
 
 ```bash
-git clone https://github.com/KuaaMU/ai-factory.git
-cd ai-factory/app
+git clone https://github.com/KuaaMU/omnihive.git
+cd omnihive/app
 npm install
 npm run tauri dev
 ```
@@ -23,7 +23,7 @@ npm run tauri dev
 
 ### Good First Issues
 
-Check out issues labeled [`good first issue`](https://github.com/KuaaMU/ai-factory/labels/good%20first%20issue) for beginner-friendly tasks.
+Check out issues labeled [`good first issue`](https://github.com/KuaaMU/omnihive/labels/good%20first%20issue) for beginner-friendly tasks.
 
 ### Add a Persona
 
@@ -70,7 +70,7 @@ Check out issues labeled [`good first issue`](https://github.com/KuaaMU/ai-facto
 
 ## Reporting Bugs
 
-Use [GitHub Issues](https://github.com/KuaaMU/ai-factory/issues) with:
+Use [GitHub Issues](https://github.com/KuaaMU/omnihive/issues) with:
 - OS and version
 - Steps to reproduce
 - Expected vs actual behavior

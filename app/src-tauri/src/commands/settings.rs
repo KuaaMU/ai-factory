@@ -5,7 +5,7 @@ use crate::models::*;
 fn get_settings_path() -> PathBuf {
     dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("ai-factory")
+        .join("omnihive")
         .join("settings.json")
 }
 
@@ -19,7 +19,7 @@ fn default_settings() -> AppSettings {
         cycle_timeout: 1800,
         projects_dir: dirs::data_dir()
             .unwrap_or_else(|| PathBuf::from("."))
-            .join("ai-factory")
+            .join("omnihive")
             .join("projects")
             .display()
             .to_string(),

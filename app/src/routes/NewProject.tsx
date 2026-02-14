@@ -304,7 +304,7 @@ export function NewProject() {
                 type="text"
                 value={outputDir}
                 onChange={(e) => setOutputDir(e.target.value)}
-                placeholder="F:/ai-factory/projects/my-company"
+                placeholder="F:/omnihive/projects/my-company"
                 className="w-full rounded-md border bg-background px-4 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
               <p className="mt-1 text-xs text-muted-foreground">

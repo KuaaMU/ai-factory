@@ -1,11 +1,11 @@
 [package]
-name = "ai-factory"
+name = "omnihive"
 version = "0.2.2"
 edition = "2021"
 description = "Self-Bootstrapping AI Company Factory"
 
 [lib]
-name = "ai_factory_lib"
+name = "omnihive_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [build-dependencies]

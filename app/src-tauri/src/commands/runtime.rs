@@ -342,7 +342,7 @@ fn resolve_api_credentials(engine: &str, model: &str) -> Result<ApiCredentials, 
 fn load_app_settings() -> Result<AppSettings, String> {
     let path = dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("ai-factory")
+        .join("omnihive")
         .join("settings.json");
 
     if !path.exists() {

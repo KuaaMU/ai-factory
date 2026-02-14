@@ -5,7 +5,7 @@ use crate::models::*;
 fn get_registry_path() -> PathBuf {
     dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("ai-factory")
+        .join("omnihive")
         .join("projects.json")
 }
 
@@ -64,7 +64,7 @@ pub fn get_library_dir_pub() -> Option<PathBuf> {
 
 /// Resolve the library directory. Checks for a local `library/` folder next to
 /// the executable first, then falls back to a `library/` relative to CWD or
-/// the ai-factory source root.
+/// the omnihive source root.
 fn get_library_dir() -> Option<PathBuf> {
     // Check relative to executable
     if let Ok(exe) = std::env::current_exe() {
@@ -94,7 +94,7 @@ fn get_library_dir() -> Option<PathBuf> {
     }
 
     // Known absolute paths (dev environment)
-    let known = PathBuf::from("F:/ai-factory/library");
+    let known = PathBuf::from("F:/omnihive/library");
     if known.exists() {
         return Some(known);
     }

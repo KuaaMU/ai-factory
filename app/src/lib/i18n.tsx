@@ -11,7 +11,7 @@ const en = {
   "sidebar.newProject": "New Project",
   "sidebar.library": "Library",
   "sidebar.settings": "Settings",
-  "sidebar.version": "AI Factory v0.2.2",
+  "sidebar.version": "Omnihive v0.2.2",
   "sidebar.checkUpdate": "Check for Updates",
   "sidebar.checking": "Checking...",
   "sidebar.updateAvailable": "Update Available",
@@ -112,7 +112,7 @@ const en = {
 
   // Settings
   "settings.title": "Settings",
-  "settings.subtitle": "Configure AI Factory defaults",
+  "settings.subtitle": "Configure Omnihive defaults",
   "settings.aiProviders": "AI Providers",
   "settings.aiProvidersDesc": "Configure API keys and endpoints for your AI providers",
   "settings.providerType": "Provider Type",
@@ -239,7 +239,7 @@ const zh: Record<keyof typeof en, string> = {
   "sidebar.newProject": "\u65b0\u5efa\u9879\u76ee",
   "sidebar.library": "\u8d44\u6e90\u5e93",
   "sidebar.settings": "\u8bbe\u7f6e",
-  "sidebar.version": "AI Factory v0.2.2",
+  "sidebar.version": "Omnihive v0.2.2",
   "sidebar.checkUpdate": "\u68c0\u67e5\u66f4\u65b0",
   "sidebar.checking": "\u68c0\u67e5\u4e2d...",
   "sidebar.updateAvailable": "\u65b0\u7248\u672c\u53ef\u7528",
@@ -340,7 +340,7 @@ const zh: Record<keyof typeof en, string> = {
 
   // Settings
   "settings.title": "\u8bbe\u7f6e",
-  "settings.subtitle": "\u914d\u7f6e AI Factory \u9ed8\u8ba4\u53c2\u6570",
+  "settings.subtitle": "\u914d\u7f6e Omnihive \u9ed8\u8ba4\u53c2\u6570",
   "settings.aiProviders": "AI \u4f9b\u5e94\u5546",
   "settings.aiProvidersDesc": "\u914d\u7f6e AI \u4f9b\u5e94\u5546\u7684 API \u5bc6\u94a5\u548c\u7aef\u70b9",
   "settings.providerType": "\u4f9b\u5e94\u5546\u7c7b\u578b",

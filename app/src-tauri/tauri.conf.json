@@ -1,7 +1,7 @@
 {
-  "productName": "AI Factory",
+  "productName": "Omnihive",
   "version": "0.2.2",
-  "identifier": "com.aifactory.app",
+  "identifier": "com.omnihive.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -11,7 +11,7 @@
   "app": {
     "windows": [
       {
-        "title": "AI Factory",
+        "title": "Omnihive",
         "width": 1280,
         "height": 800,
         "resizable": true,
@@ -42,7 +42,7 @@
     },
     "updater": {
       "endpoints": [
-        "https://github.com/KuaaMU/ai-factory/releases/latest/download/latest.json"
+        "https://github.com/KuaaMU/omnihive/releases/latest/download/latest.json"
       ],
       "pubkey": "RWRvL3ujQpZwr9t7KmTZIzk8fAwrQW0T7SsC7yBQeaO2mH36lvaQdp3B"
     }

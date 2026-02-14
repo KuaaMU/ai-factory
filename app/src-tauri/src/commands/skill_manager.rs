@@ -21,7 +21,7 @@ fn get_skill_scan_dirs() -> Vec<(String, PathBuf)> {
         if let Some(parent) = exe_dir.parent() {
             let lib_skills = parent.join("library").join("real-skills");
             if lib_skills.exists() {
-                dirs.push(("ai-factory".to_string(), lib_skills));
+                dirs.push(("omnihive".to_string(), lib_skills));
             }
         }
     }
@@ -182,14 +182,14 @@ pub fn scan_local_skills() -> Result<Vec<ScannedSkill>, String> {
 fn get_custom_skills_dir() -> PathBuf {
     dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("ai-factory")
+        .join("omnihive")
         .join("custom-skills")
 }
 
 fn get_custom_agents_dir() -> PathBuf {
     dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("ai-factory")
+        .join("omnihive")
         .join("custom-agents")
 }
 
