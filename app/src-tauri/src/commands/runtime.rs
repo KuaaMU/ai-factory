@@ -1,17 +1,27 @@
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tauri::command;
 use crate::models::*;
+use crate::engine::api_client;
 
 // Track running loops: project_dir -> stop_flag
 static RUNNING_LOOPS: std::sync::LazyLock<Mutex<HashMap<String, Arc<AtomicBool>>>> =
     std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// API credentials resolved at loop start
+struct ApiCredentials {
+    engine_type: String,
+    api_key: String,
+    api_base_url: String,
+    model: String,
+}
+
+// ===== Tauri Commands =====
 
 #[command]
 pub fn start_loop(project_dir: String, engine: String, model: String) -> Result<bool, String> {
@@ -29,23 +39,24 @@ pub fn start_loop(project_dir: String, engine: String, model: String) -> Result<
             if !flag.load(Ordering::Relaxed) {
                 return Err("Loop is already running for this project".to_string());
             }
-            // Previous loop was stopped but entry not cleaned up yet — allow restart
         }
     }
 
-    // Resolve engine binary before spawning thread
-    let engine_path = resolve_engine_binary(&engine)?;
+    // Resolve API credentials from settings
+    let credentials = resolve_api_credentials(&engine, &model)?;
 
     // Ensure log directory exists
     let _ = std::fs::create_dir_all(dir.join("logs"));
 
-    // Write initial log
-    append_log(&dir, &format!(
-        "Starting loop | Engine: {} ({}) | Model: {}",
-        engine, engine_path, model
-    ));
+    append_log(
+        &dir,
+        &format!(
+            "Starting loop | Engine: {} | Model: {} | Mode: Direct API ({})",
+            engine, model, credentials.api_base_url
+        ),
+    );
 
-    // Load project config for agent list and runtime settings
+    // Load project config
     let config = load_project_config(&dir)?;
     let agent_roles: Vec<String> = config.org.agents.iter().map(|a| a.role.clone()).collect();
     let loop_interval = config.runtime.loop_interval;
@@ -65,16 +76,13 @@ pub fn start_loop(project_dir: String, engine: String, model: String) -> Result<
         loops.insert(project_dir.clone(), Arc::clone(&stop_flag));
     }
 
-    // Spawn background thread for the loop
+    // Spawn background thread
     let project_dir_clone = project_dir.clone();
-    let engine_clone = engine.clone();
     thread::spawn(move || {
         run_loop(
             dir,
             project_dir_clone,
-            engine_clone,
-            engine_path,
-            model,
+            credentials,
             agent_roles,
             loop_interval,
             cycle_timeout,
@@ -118,7 +126,8 @@ pub fn get_status(project_dir: String) -> Result<RuntimeStatus, String> {
     // Check if loop is tracked as running
     let is_running = {
         let loops = RUNNING_LOOPS.lock().map_err(|e| e.to_string())?;
-        loops.get(&project_dir)
+        loops
+            .get(&project_dir)
             .map(|flag| !flag.load(Ordering::Relaxed))
             .unwrap_or(false)
     };
@@ -131,7 +140,14 @@ pub fn get_status(project_dir: String) -> Result<RuntimeStatus, String> {
     if !is_running {
         if let Ok(content) = std::fs::read_to_string(&state_file) {
             if content.contains("status=running") {
-                write_state(&dir, "stopped", current_cycle, total_cycles, consecutive_errors).ok();
+                write_state(
+                    &dir,
+                    "stopped",
+                    current_cycle,
+                    total_cycles,
+                    consecutive_errors,
+                )
+                .ok();
             }
         }
         // Remove stale entries from the map
@@ -167,30 +183,103 @@ pub fn tail_log(project_dir: String, lines: usize) -> Result<Vec<String>, String
     let log_file = dir.join("logs/auto-loop.log");
 
     if !log_file.exists() {
-        return Ok(vec!["No log file yet. Start the loop to begin.".to_string()]);
+        return Ok(vec![
+            "No log file yet. Start the loop to begin.".to_string()
+        ]);
     }
 
     let content = std::fs::read_to_string(&log_file)
         .map_err(|e| format!("Failed to read log: {}", e))?;
 
     if content.is_empty() {
-        return Ok(vec!["Log file is empty. Waiting for activity...".to_string()]);
+        return Ok(vec![
+            "Log file is empty. Waiting for activity...".to_string()
+        ]);
     }
 
     let all_lines: Vec<String> = content.lines().map(|l| l.to_string()).collect();
-    let start = if all_lines.len() > lines { all_lines.len() - lines } else { 0 };
+    let start = if all_lines.len() > lines {
+        all_lines.len() - lines
+    } else {
+        0
+    };
 
     Ok(all_lines[start..].to_vec())
 }
 
-// ===== Background loop logic =====
+// ===== API Credential Resolution =====
+
+fn resolve_api_credentials(engine: &str, model: &str) -> Result<ApiCredentials, String> {
+    let settings = load_app_settings()?;
+
+    let provider_type = match engine {
+        "claude" => "anthropic",
+        "openai" | "codex" => "openai",
+        other => other,
+    };
+
+    let provider = settings
+        .providers
+        .iter()
+        .find(|p| p.enabled && (p.provider_type == provider_type || p.provider_type == engine))
+        .ok_or_else(|| {
+            format!(
+                "No API provider configured for engine '{}'. Add an {} provider with API key in Settings.",
+                engine,
+                match engine {
+                    "claude" => "Anthropic",
+                    "openai" | "codex" => "OpenAI",
+                    _ => engine,
+                }
+            )
+        })?;
+
+    if provider.api_key.is_empty() {
+        return Err(format!(
+            "API key is empty for provider '{}'. Configure it in Settings.",
+            provider.name
+        ));
+    }
+
+    let api_base_url = if provider.api_base_url.is_empty() {
+        match engine {
+            "claude" => "https://api.anthropic.com".to_string(),
+            "openai" | "codex" => "https://api.openai.com".to_string(),
+            _ => return Err("API base URL is required".to_string()),
+        }
+    } else {
+        provider.api_base_url.clone()
+    };
+
+    Ok(ApiCredentials {
+        engine_type: provider_type.to_string(),
+        api_key: provider.api_key.clone(),
+        api_base_url,
+        model: model.to_string(),
+    })
+}
+
+fn load_app_settings() -> Result<AppSettings, String> {
+    let path = dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("ai-factory")
+        .join("settings.json");
+
+    if !path.exists() {
+        return Err("Settings file not found. Please configure settings first.".to_string());
+    }
+
+    let content = std::fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read settings: {}", e))?;
+    serde_json::from_str(&content).map_err(|e| format!("Failed to parse settings: {}", e))
+}
+
+// ===== Background Loop =====
 
 fn run_loop(
     dir: PathBuf,
     project_dir: String,
-    engine_type: String,
-    engine_path: String,
-    model: String,
+    credentials: ApiCredentials,
     agent_roles: Vec<String>,
     loop_interval: u32,
     cycle_timeout: u32,
@@ -201,14 +290,17 @@ fn run_loop(
     let mut errors: u32 = 0;
     let mut history: Vec<CycleResult> = load_cycle_history(&dir);
 
-    append_log(&dir, &format!(
-        "Loop started | {} agents: [{}] | interval={}s timeout={}s max_errors={}",
-        agent_roles.len(),
-        agent_roles.join(", "),
-        loop_interval,
-        cycle_timeout,
-        max_errors,
-    ));
+    append_log(
+        &dir,
+        &format!(
+            "Loop started | {} agents: [{}] | interval={}s timeout={}s max_errors={}",
+            agent_roles.len(),
+            agent_roles.join(", "),
+            loop_interval,
+            cycle_timeout,
+            max_errors,
+        ),
+    );
 
     loop {
         if stop_flag.load(Ordering::Relaxed) {
@@ -221,34 +313,40 @@ fn run_loop(
         let agent_idx = ((cycle - 1) as usize) % agent_roles.len();
         let current_agent = &agent_roles[agent_idx];
 
-        append_log(&dir, &format!("=== Cycle {} | Agent: {} ===", cycle, current_agent));
+        append_log(
+            &dir,
+            &format!("=== Cycle {} | Agent: {} ===", cycle, current_agent),
+        );
 
         let started_at = chrono::Local::now().format("%+").to_string();
         write_state(&dir, "running", cycle, cycle, errors).ok();
 
-        // Build the prompt for this agent
-        let prompt = format!(
-            "You are the {} agent. Read memories/consensus.md, perform your role, and update consensus with your findings.",
-            current_agent
-        );
-
-        // Run the engine cycle with timeout
-        let result = run_engine_cycle(&dir, &engine_type, &engine_path, &model, &prompt, cycle_timeout);
+        // Execute API cycle
+        let result = run_api_cycle(&dir, &credentials, current_agent, cycle, cycle_timeout);
 
         let completed_at = chrono::Local::now().format("%+").to_string();
 
         match result {
-            Ok(output) => {
+            Ok((output, input_tokens, output_tokens)) => {
                 errors = 0;
                 let preview = truncate_string(&output, 200);
-                append_log(&dir, &format!("Cycle {} completed | Output: {}", cycle, preview));
+                append_log(
+                    &dir,
+                    &format!(
+                        "Cycle {} completed | Tokens: {}in/{}out | Output: {}",
+                        cycle, input_tokens, output_tokens, preview
+                    ),
+                );
 
                 history.push(CycleResult {
                     cycle_number: cycle,
                     started_at,
                     completed_at,
                     agent_role: current_agent.clone(),
-                    action: format!("Executed {} agent cycle", current_agent),
+                    action: format!(
+                        "{} analysis ({}+{} tokens)",
+                        current_agent, input_tokens, output_tokens
+                    ),
                     outcome: preview,
                     files_changed: vec![],
                     error: None,
@@ -256,10 +354,13 @@ fn run_loop(
             }
             Err(err) => {
                 errors += 1;
-                append_log(&dir, &format!(
-                    "ERROR: Cycle {} failed: {} (consecutive: {})",
-                    cycle, err, errors
-                ));
+                append_log(
+                    &dir,
+                    &format!(
+                        "ERROR: Cycle {} failed: {} (consecutive: {})",
+                        cycle, err, errors
+                    ),
+                );
 
                 history.push(CycleResult {
                     cycle_number: cycle,
@@ -273,10 +374,13 @@ fn run_loop(
                 });
 
                 if errors >= max_errors {
-                    append_log(&dir, &format!(
-                        "FATAL: Max consecutive errors ({}) reached. Stopping loop.",
-                        max_errors
-                    ));
+                    append_log(
+                        &dir,
+                        &format!(
+                            "FATAL: Max consecutive errors ({}) reached. Stopping loop.",
+                            max_errors
+                        ),
+                    );
                     write_state(&dir, "error", cycle, cycle, errors).ok();
                     save_cycle_history(&dir, &history);
                     cleanup_loop(&project_dir);
@@ -296,119 +400,151 @@ fn run_loop(
     cleanup_loop(&project_dir);
 }
 
-fn run_engine_cycle(
+// ===== API Cycle Execution =====
+
+fn run_api_cycle(
     dir: &Path,
-    engine_type: &str,
-    engine_path: &str,
-    model: &str,
-    prompt: &str,
+    credentials: &ApiCredentials,
+    agent_role: &str,
+    cycle: u32,
     timeout_secs: u32,
-) -> Result<String, String> {
-    let mut child = spawn_engine(dir, engine_type, engine_path, model, prompt)?;
+) -> Result<(String, u32, u32), String> {
+    // 1. Read agent file
+    let agent_content = read_agent_file(dir, agent_role)?;
 
-    // Wait with timeout using try_wait polling
-    let start = Instant::now();
-    let timeout = Duration::from_secs(timeout_secs as u64);
+    // 2. Read current consensus
+    let consensus_content = std::fs::read_to_string(dir.join("memories/consensus.md"))
+        .map_err(|e| format!("Failed to read consensus: {}", e))?;
 
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                let stdout = child.stdout.take()
-                    .map(|mut s| {
-                        let mut buf = String::new();
-                        s.read_to_string(&mut buf).ok();
-                        buf
-                    })
-                    .unwrap_or_default();
+    // 3. Build focused prompts
+    let system_prompt = build_system_prompt(&agent_content, agent_role, cycle);
+    let user_prompt = build_user_prompt(&consensus_content);
 
-                let stderr = child.stderr.take()
-                    .map(|mut s| {
-                        let mut buf = String::new();
-                        s.read_to_string(&mut buf).ok();
-                        buf
-                    })
-                    .unwrap_or_default();
-
-                if status.success() {
-                    return Ok(stdout);
-                } else {
-                    let err_msg = if stderr.is_empty() {
-                        format!("Process exited with status: {}", status)
-                    } else {
-                        truncate_string(&stderr, 500)
-                    };
-                    return Err(err_msg);
-                }
-            }
-            Ok(None) => {
-                if start.elapsed() > timeout {
-                    let _ = child.kill();
-                    return Err(format!("Cycle timed out after {} seconds", timeout_secs));
-                }
-                thread::sleep(Duration::from_millis(500));
-            }
-            Err(e) => {
-                return Err(format!("Wait error: {}", e));
-            }
-        }
-    }
-}
-
-fn spawn_engine(
-    dir: &Path,
-    engine_type: &str,
-    engine_path: &str,
-    model: &str,
-    prompt: &str,
-) -> Result<std::process::Child, String> {
-    let mut args: Vec<String> = Vec::new();
-
-    match engine_type {
-        "claude" => {
-            args.extend([
-                "-p".to_string(),
-                "--model".to_string(),
-                model.to_string(),
-                prompt.to_string(),
-            ]);
-        }
-        "codex" => {
-            args.extend([
-                "--quiet".to_string(),
-                prompt.to_string(),
-            ]);
-        }
-        "opencode" => {
-            args.push(prompt.to_string());
-        }
-        _ => {
-            args.push(prompt.to_string());
-        }
-    }
-
-    // On Windows, .cmd/.bat files must be run through cmd.exe
-    #[cfg(target_os = "windows")]
-    let mut cmd = if engine_path.ends_with(".cmd") || engine_path.ends_with(".bat") {
-        let mut c = Command::new("cmd");
-        c.arg("/C").arg(engine_path);
-        c
-    } else {
-        Command::new(engine_path)
+    // 4. Call the appropriate API
+    let response = match credentials.engine_type.as_str() {
+        "anthropic" => api_client::call_anthropic(
+            &credentials.api_key,
+            &credentials.api_base_url,
+            &credentials.model,
+            &system_prompt,
+            &user_prompt,
+            timeout_secs,
+        )?,
+        "openai" => api_client::call_openai(
+            &credentials.api_key,
+            &credentials.api_base_url,
+            &credentials.model,
+            &system_prompt,
+            &user_prompt,
+            timeout_secs,
+        )?,
+        other => return Err(format!("Unsupported engine type: {}", other)),
     };
 
-    #[cfg(not(target_os = "windows"))]
-    let mut cmd = Command::new(engine_path);
+    // 5. Try to extract and apply consensus update
+    if let Some(updated_consensus) = extract_consensus_update(&response.text) {
+        // Backup existing consensus
+        let backup_path = dir.join("memories/consensus.md.bak");
+        let _ = std::fs::copy(dir.join("memories/consensus.md"), &backup_path);
 
-    cmd.args(&args)
-        .current_dir(dir)
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
+        // Write updated consensus
+        std::fs::write(dir.join("memories/consensus.md"), &updated_consensus)
+            .map_err(|e| format!("Failed to write consensus: {}", e))?;
 
-    cmd.spawn()
-        .map_err(|e| format!("Failed to start {} ({}): {}", engine_type, engine_path, e))
+        append_log(dir, &format!("Consensus updated by {} agent", agent_role));
+    } else {
+        append_log(dir, "No structured consensus update in response (logged only)");
+    }
+
+    Ok((response.text, response.input_tokens, response.output_tokens))
 }
 
-// ===== Engine binary resolution =====
+fn read_agent_file(dir: &Path, role: &str) -> Result<String, String> {
+    let agents_dir = dir.join(".claude/agents");
+    let prefix = format!("{}-", role);
+
+    if let Ok(entries) = std::fs::read_dir(&agents_dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with(&prefix) && name.ends_with(".md") {
+                return std::fs::read_to_string(entry.path())
+                    .map_err(|e| format!("Failed to read agent file: {}", e));
+            }
+        }
+    }
+
+    // Fallback: generate a basic prompt for the role
+    Ok(format!(
+        "# Agent: {role}\n\nYou are the {role} agent. Analyze the company state and provide recommendations from your area of expertise.",
+        role = role
+    ))
+}
+
+fn build_system_prompt(agent_content: &str, role: &str, cycle: u32) -> String {
+    format!(
+        r#"{agent_content}
+
+---
+
+You are performing cycle {cycle} of the autonomous company loop.
+
+YOUR TASK:
+1. Read the current consensus document provided below
+2. From your perspective as the {role}, analyze the current state
+3. Decide on actions aligned with the company mission
+4. Output the COMPLETE updated consensus.md
+
+OUTPUT FORMAT:
+First, briefly state your analysis and decision (2-3 sentences).
+Then output the FULL updated consensus.md between these markers:
+
+<<<CONSENSUS_START>>>
+[Full updated consensus.md content]
+<<<CONSENSUS_END>>>
+
+RULES:
+- Output the COMPLETE consensus.md between the markers (not partial)
+- Set the Cycle number to {cycle}
+- Add your decision to the Decision Log table
+- Update Current Focus and Next Action as needed
+- Preserve all existing sections
+- Be concise and actionable"#,
+        agent_content = agent_content,
+        cycle = cycle,
+        role = role,
+    )
+}
+
+fn build_user_prompt(consensus_content: &str) -> String {
+    format!("Current consensus.md:\n\n{}", consensus_content)
+}
+
+fn extract_consensus_update(response: &str) -> Option<String> {
+    let start_marker = "<<<CONSENSUS_START>>>";
+    let end_marker = "<<<CONSENSUS_END>>>";
+
+    let start_idx = response.find(start_marker)?;
+    let end_idx = response.find(end_marker)?;
+
+    if end_idx <= start_idx {
+        return None;
+    }
+
+    let content = response[start_idx + start_marker.len()..end_idx].trim();
+
+    // Validate the extracted content has required consensus sections
+    if content.contains("## Company State")
+        && content.contains("## Current Focus")
+        && content.contains("## Decision Log")
+        && content.len() > 100
+    {
+        Some(content.to_string())
+    } else {
+        None
+    }
+}
+
+// ===== Engine Binary Resolution (used by system.rs) =====
 
 pub fn resolve_engine_binary(engine: &str) -> Result<String, String> {
     let candidates: &[&str] = match engine {
@@ -465,14 +601,13 @@ pub fn find_binary(name: &str) -> Option<String> {
     }
 }
 
-// ===== Helper functions =====
+// ===== Helper Functions =====
 
 fn load_project_config(dir: &Path) -> Result<FactoryConfig, String> {
     let config_path = dir.join("company.yaml");
     let content = std::fs::read_to_string(&config_path)
         .map_err(|e| format!("Failed to read company.yaml: {}", e))?;
-    serde_yaml::from_str(&content)
-        .map_err(|e| format!("Failed to parse company.yaml: {}", e))
+    serde_yaml::from_str(&content).map_err(|e| format!("Failed to parse company.yaml: {}", e))
 }
 
 fn load_cycle_history(dir: &Path) -> Vec<CycleResult> {
@@ -490,7 +625,13 @@ fn save_cycle_history(dir: &Path, history: &[CycleResult]) {
     }
 }
 
-fn write_state(dir: &Path, status: &str, cycle: u32, total: u32, errors: u32) -> Result<(), String> {
+fn write_state(
+    dir: &Path,
+    status: &str,
+    cycle: u32,
+    total: u32,
+    errors: u32,
+) -> Result<(), String> {
     let timestamp = chrono::Local::now().format("%+").to_string();
     let content = format!(
         "current_cycle={}\ntotal_cycles={}\nconsecutive_errors={}\nstatus={}\nlast_cycle_at={}\n",
@@ -526,7 +667,9 @@ fn parse_state_file(state_file: &Path) -> (u32, u32, u32, Option<String>) {
 }
 
 fn append_log(dir: &Path, message: &str) {
-    let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    let timestamp = chrono::Local::now()
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
     let entry = format!("[{}] {}\n", timestamp, message);
     let log_path = dir.join("logs/auto-loop.log");
     if let Ok(mut file) = std::fs::OpenOptions::new()
