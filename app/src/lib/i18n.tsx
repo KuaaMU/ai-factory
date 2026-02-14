@@ -134,6 +134,8 @@ const en = {
   "settings.saveFailed": "Failed to save settings",
   "settings.language": "Language",
   "settings.languageLabel": "Interface Language",
+  "settings.theme": "Theme",
+  "settings.themeLabel": "Color Theme",
 
   // System Environment
   "system.title": "System Environment",
@@ -344,6 +346,8 @@ const zh: Record<keyof typeof en, string> = {
   "settings.saveFailed": "\u4fdd\u5b58\u8bbe\u7f6e\u5931\u8d25",
   "settings.language": "\u8bed\u8a00",
   "settings.languageLabel": "\u754c\u9762\u8bed\u8a00",
+  "settings.theme": "\u4e3b\u9898",
+  "settings.themeLabel": "\u989c\u8272\u4e3b\u9898",
 
   // System Environment
   "system.title": "\u7cfb\u7edf\u73af\u5883",

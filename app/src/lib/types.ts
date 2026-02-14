@@ -206,6 +206,7 @@ export interface AppSettings {
   readonly projects_dir: string;
   readonly providers: readonly AiProvider[];
   readonly language: string;
+  readonly theme?: string;
   readonly mcp_servers: readonly McpServerConfig[];
 }
 

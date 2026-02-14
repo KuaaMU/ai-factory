@@ -415,7 +415,7 @@ export function ProjectDetail() {
             </span>
           )}
         </div>
-        <div className="max-h-96 overflow-auto bg-zinc-950 p-4">
+        <div className="max-h-96 overflow-auto bg-background p-4">
           <pre className="whitespace-pre-wrap font-mono text-xs text-green-400">
             {logs && logs.length > 0
               ? logs.join("\n")

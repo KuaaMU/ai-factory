@@ -4,44 +4,83 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
   }
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+  /* ===== Theme: Obsidian (黑曜石) — default ===== */
+  /* Pure zinc dark, blue accent, clean and minimal */
+  .dark,
+  [data-theme="obsidian"] {
+    --background: 240 10% 3.9%;       /* zinc-950 */
+    --foreground: 0 0% 98%;           /* zinc-50 */
+    --card: 240 5.9% 10%;             /* zinc-900 */
+    --card-foreground: 0 0% 98%;      /* zinc-50 */
+    --popover: 240 5.9% 10%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 217 91% 60%;           /* blue-500 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 3.7% 15.9%;     /* zinc-800 */
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;         /* zinc-800 */
+    --muted-foreground: 240 5% 64.9%; /* zinc-400 */
+    --accent: 217 91% 60%;            /* blue-500 */
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;        /* zinc-800 */
+    --input: 240 5.3% 26.1%;         /* zinc-700 */
+    --ring: 217 91% 60%;             /* blue-500 */
+    color-scheme: dark;
+  }
+
+  /* ===== Theme: Cyber (赛博) ===== */
+  /* Deep slate-blue tint, cyan accent, futuristic */
+  [data-theme="cyber"] {
+    --background: 222 47% 6%;         /* deep navy */
+    --foreground: 210 40% 96%;        /* slate-100 */
+    --card: 217 33% 12%;              /* slate-900 */
+    --card-foreground: 210 40% 96%;
+    --popover: 217 33% 12%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 192 91% 56%;           /* cyan-400 */
+    --primary-foreground: 222 47% 6%;
+    --secondary: 215 28% 17%;         /* slate-800 */
+    --secondary-foreground: 210 40% 96%;
+    --muted: 215 28% 17%;
+    --muted-foreground: 215 20% 60%;  /* slate-400 */
+    --accent: 192 91% 56%;            /* cyan-400 */
+    --accent-foreground: 222 47% 6%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 210 40% 96%;
+    --border: 215 28% 20%;            /* slate-700 */
+    --input: 215 25% 25%;
+    --ring: 192 91% 56%;
+    color-scheme: dark;
+  }
+
+  /* ===== Theme: Ember (琥珀) ===== */
+  /* Warm dark, amber/orange accent, elegant */
+  [data-theme="ember"] {
+    --background: 20 14% 4%;          /* warm black */
+    --foreground: 36 33% 94%;         /* warm white */
+    --card: 20 10% 10%;               /* warm dark */
+    --card-foreground: 36 33% 94%;
+    --popover: 20 10% 10%;
+    --popover-foreground: 36 33% 94%;
+    --primary: 32 95% 54%;            /* amber-500 */
+    --primary-foreground: 20 14% 4%;
+    --secondary: 20 8% 16%;           /* warm gray */
+    --secondary-foreground: 36 33% 94%;
+    --muted: 20 8% 16%;
+    --muted-foreground: 25 5% 60%;    /* warm gray-400 */
+    --accent: 32 95% 54%;             /* amber-500 */
+    --accent-foreground: 20 14% 4%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 36 33% 94%;
+    --border: 20 8% 18%;
+    --input: 20 6% 24%;
+    --ring: 32 95% 54%;
+    color-scheme: dark;
   }
 }
 

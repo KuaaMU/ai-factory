@@ -12,6 +12,11 @@ import {
   Trash2,
   Download,
   FolderSearch,
+  Server,
+  Power,
+  AlertCircle,
+  Check,
+  Sparkles,
 } from "lucide-react";
 import {
   listPersonas,
@@ -24,6 +29,10 @@ import {
   removeCustomAgent,
   removeCustomSkill,
   scanLocalSkills,
+  addMcpServer,
+  removeMcpServer,
+  getMcpPresets,
+  listMcpServers,
 } from "@/lib/tauri";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -34,9 +43,11 @@ import type {
   AddSkillRequest,
   AddAgentRequest,
   AgentLayer,
+  McpServerConfig,
+  McpPreset,
 } from "@/lib/types";
 
-type Tab = "agents" | "skills" | "workflows";
+type Tab = "agents" | "skills" | "workflows" | "mcp";
 
 type ModalMode =
   | { readonly kind: "none" }
@@ -73,6 +84,16 @@ const SOURCE_COLORS: Record<string, string> = {
   ecc: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   custom: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
 };
+
+const MCP_CATEGORY_COLORS: Record<string, string> = {
+  search: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  tools: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  data: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+  communication: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+};
+
+const MCP_CATEGORY_DEFAULT_COLOR =
+  "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
 
 const AGENT_LAYERS: readonly AgentLayer[] = [
   "strategy",
@@ -116,6 +137,10 @@ function mergeSkills(
   return merged;
 }
 
+function getMcpCategoryColor(category: string): string {
+  return MCP_CATEGORY_COLORS[category] ?? MCP_CATEGORY_DEFAULT_COLOR;
+}
+
 // ===== Detail Panel: Persona =====
 
 function PersonaDetail({ persona, onClose }: {
@@ -124,13 +149,13 @@ function PersonaDetail({ persona, onClose }: {
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="mx-4 max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border bg-card p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
+      <div className="mx-4 max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground">
             {persona.role[0].toUpperCase()}
           </div>
           <div>
-            <h2 className="text-lg font-semibold">{persona.name}</h2>
+            <h2 className="text-lg font-semibold text-foreground">{persona.name}</h2>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">{persona.role}</span>
               <span className={cn("rounded-full px-2 py-0.5 text-xs", LAYER_COLORS[ROLE_TO_LAYER[persona.role] ?? "business"])}>
@@ -184,7 +209,7 @@ function PersonaDetail({ persona, onClose }: {
 
         <button
           onClick={onClose}
-          className="mt-4 w-full rounded-md border py-2 text-sm hover:bg-accent"
+          className="mt-4 w-full rounded-md border border-border py-2 text-sm hover:bg-accent"
         >
           Close
         </button>
@@ -201,9 +226,9 @@ function SkillDetail({ skill, onClose }: {
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="mx-4 max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border bg-card p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
+      <div className="mx-4 max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{skill.name}</h2>
+          <h2 className="text-lg font-semibold text-foreground">{skill.name}</h2>
           <span className={cn("rounded-full px-2 py-0.5 text-xs", SOURCE_COLORS[skill.source] ?? SOURCE_COLORS.custom)}>
             {skill.source}
           </span>
@@ -229,7 +254,7 @@ function SkillDetail({ skill, onClose }: {
 
         <button
           onClick={onClose}
-          className="mt-4 w-full rounded-md border py-2 text-sm hover:bg-accent"
+          className="mt-4 w-full rounded-md border border-border py-2 text-sm hover:bg-accent"
         >
           Close
         </button>
@@ -285,10 +310,10 @@ function AddAgentModal({ onClose }: { readonly onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
-        className="mx-4 max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border bg-card p-6 shadow-lg"
+        className="mx-4 max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold">{t("library.addAgent")}</h2>
+        <h2 className="text-lg font-semibold text-foreground">{t("library.addAgent")}</h2>
 
         <div className="mt-4 space-y-3">
           <div>
@@ -297,7 +322,7 @@ function AddAgentModal({ onClose }: { readonly onClose: () => void }) {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -307,7 +332,7 @@ function AddAgentModal({ onClose }: { readonly onClose: () => void }) {
               type="text"
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -317,7 +342,7 @@ function AddAgentModal({ onClose }: { readonly onClose: () => void }) {
               type="text"
               value={expertise}
               onChange={(e) => setExpertise(e.target.value)}
-              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -326,7 +351,7 @@ function AddAgentModal({ onClose }: { readonly onClose: () => void }) {
             <select
               value={layer}
               onChange={(e) => setLayer(e.target.value as AgentLayer)}
-              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             >
               {AGENT_LAYERS.map((l) => (
                 <option key={l} value={l}>{l}</option>
@@ -341,7 +366,7 @@ function AddAgentModal({ onClose }: { readonly onClose: () => void }) {
               value={mentalModels}
               onChange={(e) => setMentalModels(e.target.value)}
               placeholder="model1, model2, model3"
-              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -352,7 +377,7 @@ function AddAgentModal({ onClose }: { readonly onClose: () => void }) {
               value={coreCapabilities}
               onChange={(e) => setCoreCapabilities(e.target.value)}
               placeholder="capability1, capability2"
-              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
         </div>
@@ -364,7 +389,7 @@ function AddAgentModal({ onClose }: { readonly onClose: () => void }) {
         <div className="mt-5 flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 rounded-md border border-zinc-700 bg-zinc-800 py-2 text-sm hover:bg-zinc-700"
+            className="flex-1 rounded-md border border-input bg-secondary py-2 text-sm hover:bg-secondary/80"
           >
             {t("library.cancel")}
           </button>
@@ -417,10 +442,10 @@ function AddSkillModal({ onClose }: { readonly onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
-        className="mx-4 max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border bg-card p-6 shadow-lg"
+        className="mx-4 max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold">{t("library.addSkill")}</h2>
+        <h2 className="text-lg font-semibold text-foreground">{t("library.addSkill")}</h2>
 
         <div className="mt-4 space-y-3">
           <div>
@@ -429,7 +454,7 @@ function AddSkillModal({ onClose }: { readonly onClose: () => void }) {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -439,7 +464,7 @@ function AddSkillModal({ onClose }: { readonly onClose: () => void }) {
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -450,7 +475,7 @@ function AddSkillModal({ onClose }: { readonly onClose: () => void }) {
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               placeholder="custom"
-              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -460,7 +485,7 @@ function AddSkillModal({ onClose }: { readonly onClose: () => void }) {
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={6}
-              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
         </div>
@@ -472,7 +497,7 @@ function AddSkillModal({ onClose }: { readonly onClose: () => void }) {
         <div className="mt-5 flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 rounded-md border border-zinc-700 bg-zinc-800 py-2 text-sm hover:bg-zinc-700"
+            className="flex-1 rounded-md border border-input bg-secondary py-2 text-sm hover:bg-secondary/80"
           >
             {t("library.cancel")}
           </button>
@@ -522,10 +547,10 @@ function ScanResultsModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
-        className="mx-4 max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-lg border bg-card p-6 shadow-lg"
+        className="mx-4 max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold">{t("library.scanResults")}</h2>
+        <h2 className="text-lg font-semibold text-foreground">{t("library.scanResults")}</h2>
 
         {results.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">{t("library.noScanResults")}</p>
@@ -536,11 +561,11 @@ function ScanResultsModal({
               return (
                 <div
                   key={skill.id}
-                  className="flex items-center justify-between rounded-md border border-zinc-700 bg-zinc-800 p-3"
+                  className="flex items-center justify-between rounded-md border border-input bg-secondary p-3"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="font-medium text-sm">{skill.name}</p>
+                      <p className="font-medium text-sm text-foreground">{skill.name}</p>
                       <span className="rounded-full bg-secondary px-2 py-0.5 text-xs">
                         {skill.source}
                       </span>
@@ -577,7 +602,7 @@ function ScanResultsModal({
 
         <button
           onClick={onClose}
-          className="mt-5 w-full rounded-md border border-zinc-700 bg-zinc-800 py-2 text-sm hover:bg-zinc-700"
+          className="mt-5 w-full rounded-md border border-input bg-secondary py-2 text-sm hover:bg-secondary/80"
         >
           Close
         </button>
@@ -674,6 +699,296 @@ function DeleteButton({
   );
 }
 
+// ===== MCP Preset Card =====
+
+function McpPresetCard({
+  preset,
+  isAdded,
+  onAdd,
+}: {
+  readonly preset: McpPreset;
+  readonly isAdded: boolean;
+  readonly onAdd: () => void;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-input bg-secondary p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-foreground">{preset.name}</p>
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-xs font-medium",
+                getMcpCategoryColor(preset.category),
+              )}
+            >
+              {preset.category}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {preset.description}
+          </p>
+        </div>
+        <button
+          onClick={onAdd}
+          disabled={isAdded}
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-70",
+            isAdded
+              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+              : "bg-primary text-primary-foreground hover:bg-primary/90",
+          )}
+        >
+          {isAdded ? (
+            <>
+              <Check className="h-3 w-3" />
+              {t("settings.mcpAdded")}
+            </>
+          ) : (
+            <>
+              <Plus className="h-3 w-3" />
+              Add
+            </>
+          )}
+        </button>
+      </div>
+      {preset.env_keys.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {preset.env_keys.map((key) => (
+            <span
+              key={key}
+              className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
+            >
+              {key}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== MCP Server Row =====
+
+function McpServerRow({
+  server,
+  onRemove,
+  onToggle,
+}: {
+  readonly server: McpServerConfig;
+  readonly onRemove: (id: string) => void;
+  readonly onToggle: (id: string, enabled: boolean) => void;
+}) {
+  const typeColor = (serverType: string) => {
+    switch (serverType) {
+      case "stdio":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+      case "sse":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
+    }
+  };
+
+  const envEntries = Object.entries(server.env);
+
+  return (
+    <div className="space-y-2 rounded-md border border-input bg-secondary p-4">
+      <div className="flex items-center gap-3">
+        <div
+          className={cn(
+            "h-3 w-3 rounded-full",
+            server.enabled ? "bg-green-500" : "bg-gray-400",
+          )}
+        />
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-foreground">{server.name}</p>
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-xs font-medium",
+                typeColor(server.server_type),
+              )}
+            >
+              {server.server_type}
+            </span>
+          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {server.command} {server.args.join(" ")}
+          </p>
+        </div>
+        <button
+          onClick={() => onToggle(server.id, !server.enabled)}
+          className={cn(
+            "rounded-md p-2 transition-colors",
+            server.enabled
+              ? "text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
+              : "text-muted-foreground hover:bg-accent",
+          )}
+          title={server.enabled ? "Disable" : "Enable"}
+        >
+          <Power className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => onRemove(server.id)}
+          className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+      {envEntries.length > 0 && (
+        <div className="ml-6 space-y-1">
+          {envEntries.map(([key, value]) => (
+            <div key={key} className="flex items-center gap-2 text-xs">
+              <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-muted-foreground">
+                {key}
+              </span>
+              <span className="truncate text-muted-foreground">
+                {value || "(not set)"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== MCP Tab Content =====
+
+function McpTabContent() {
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
+  const [addedPresetIds, setAddedPresetIds] = useState<ReadonlySet<string>>(
+    new Set(),
+  );
+
+  const { data: mcpServers = [] } = useQuery({
+    queryKey: ["mcp-servers"],
+    queryFn: listMcpServers,
+  });
+
+  const { data: mcpPresets = [] } = useQuery({
+    queryKey: ["mcp-presets"],
+    queryFn: getMcpPresets,
+  });
+
+  const addServerMutation = useMutation({
+    mutationFn: (server: McpServerConfig) => addMcpServer(server),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mcp-servers"] });
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+    },
+  });
+
+  const removeServerMutation = useMutation({
+    mutationFn: (serverId: string) => removeMcpServer(serverId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mcp-servers"] });
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+    },
+  });
+
+  const handleAddPreset = useCallback(
+    (preset: McpPreset) => {
+      const envRecord: Record<string, string> = {};
+      for (const key of preset.env_keys) {
+        envRecord[key] = "";
+      }
+      const server: McpServerConfig = {
+        id: crypto.randomUUID(),
+        name: preset.name,
+        server_type: preset.server_type,
+        command: preset.command,
+        args: [...preset.args],
+        url: "",
+        env: envRecord,
+        enabled: true,
+        tools: [],
+      };
+      addServerMutation.mutate(server);
+      setAddedPresetIds((prev) => new Set([...prev, preset.id]));
+    },
+    [addServerMutation],
+  );
+
+  const handleRemoveServer = useCallback(
+    (serverId: string) => {
+      removeServerMutation.mutate(serverId);
+    },
+    [removeServerMutation],
+  );
+
+  const handleToggleServer = useCallback(
+    (serverId: string, enabled: boolean) => {
+      const server = mcpServers.find((s) => s.id === serverId);
+      if (!server) return;
+      const updated: McpServerConfig = {
+        ...server,
+        enabled,
+      };
+      addServerMutation.mutate(updated);
+    },
+    [mcpServers, addServerMutation],
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Presets - Quick Add */}
+      {mcpPresets.length > 0 && (
+        <div className="space-y-3 rounded-lg border border-border bg-card p-6">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <h2 className="font-semibold text-foreground">{t("settings.mcpPresets")}</h2>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {mcpPresets.map((preset) => (
+              <McpPresetCard
+                key={preset.id}
+                preset={preset}
+                isAdded={addedPresetIds.has(preset.id)}
+                onAdd={() => handleAddPreset(preset)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Configured Servers */}
+      <div className="space-y-3 rounded-lg border border-border bg-card p-6">
+        <div className="flex items-center gap-2">
+          <Server className="h-5 w-5 text-muted-foreground" />
+          <div>
+            <h2 className="font-semibold text-foreground">{t("settings.mcpConfigured")}</h2>
+            <p className="text-sm text-muted-foreground">
+              {t("settings.mcpDesc")}
+            </p>
+          </div>
+        </div>
+        {mcpServers.length > 0 ? (
+          <div className="space-y-2">
+            {mcpServers.map((server) => (
+              <McpServerRow
+                key={server.id}
+                server={server}
+                onRemove={handleRemoveServer}
+                onToggle={handleToggleServer}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 rounded-md border border-dashed border-input p-4 text-sm text-muted-foreground">
+            <AlertCircle className="h-4 w-4" />
+            {t("settings.mcpNoServers")}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ===== Main Library =====
 
 export function Library() {
@@ -712,6 +1027,13 @@ export function Library() {
   const { data: customSkills } = useQuery({
     queryKey: ["customSkills"],
     queryFn: listCustomSkills,
+  });
+
+  // ---- MCP server count for tab badge ----
+
+  const { data: mcpServers } = useQuery({
+    queryKey: ["mcp-servers"],
+    queryFn: listMcpServers,
   });
 
   // ---- Merged lists ----
@@ -759,19 +1081,20 @@ export function Library() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">{t("library.title")}</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("library.title")}</h1>
         <p className="text-muted-foreground">
           {t("library.subtitle")}
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-4 border-b">
+      <div className="flex items-center gap-4 border-b border-border">
         {(
           [
             { id: "agents" as Tab, icon: Users, label: t("library.agents"), count: allPersonas.length },
             { id: "skills" as Tab, icon: Wrench, label: t("library.skills"), count: allSkills.length },
             { id: "workflows" as Tab, icon: GitBranch, label: t("library.workflows"), count: workflows?.length },
+            { id: "mcp" as Tab, icon: Server, label: t("settings.mcpServers"), count: mcpServers?.length },
           ] as const
         ).map(({ id, icon: Icon, label, count }) => (
           <button
@@ -795,58 +1118,60 @@ export function Library() {
         ))}
       </div>
 
-      {/* Search + Action Buttons + Category Filter */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={searchPlaceholder}
-              className="w-full rounded-md border bg-background py-2 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
+      {/* Search + Action Buttons + Category Filter (not shown for MCP tab) */}
+      {tab !== "mcp" && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={searchPlaceholder}
+                className="w-full rounded-md border border-border bg-background py-2 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
 
-          {tab === "agents" && (
-            <button
-              onClick={() => setModal({ kind: "addAgent" })}
-              className="flex shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              <Plus className="h-4 w-4" />
-              {t("library.addAgent")}
-            </button>
-          )}
-
-          {tab === "skills" && (
-            <>
+            {tab === "agents" && (
               <button
-                onClick={() => setModal({ kind: "addSkill" })}
+                onClick={() => setModal({ kind: "addAgent" })}
                 className="flex shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
               >
                 <Plus className="h-4 w-4" />
-                {t("library.addSkill")}
+                {t("library.addAgent")}
               </button>
-              <button
-                onClick={() => scanMutation.mutate()}
-                disabled={scanMutation.isPending}
-                className="flex shrink-0 items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm font-medium hover:bg-zinc-700 disabled:opacity-50"
-              >
-                <FolderSearch className="h-4 w-4" />
-                {scanMutation.isPending ? t("library.scanning") : t("library.scanSkills")}
-              </button>
-            </>
+            )}
+
+            {tab === "skills" && (
+              <>
+                <button
+                  onClick={() => setModal({ kind: "addSkill" })}
+                  className="flex shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  <Plus className="h-4 w-4" />
+                  {t("library.addSkill")}
+                </button>
+                <button
+                  onClick={() => scanMutation.mutate()}
+                  disabled={scanMutation.isPending}
+                  className="flex shrink-0 items-center gap-1.5 rounded-md border border-input bg-secondary px-3 py-2 text-sm font-medium hover:bg-secondary/80 disabled:opacity-50"
+                >
+                  <FolderSearch className="h-4 w-4" />
+                  {scanMutation.isPending ? t("library.scanning") : t("library.scanSkills")}
+                </button>
+              </>
+            )}
+          </div>
+
+          {tab === "agents" && layerCategories.length > 0 && (
+            <CategoryFilter categories={layerCategories} selected={selectedCategory} onSelect={setSelectedCategory} />
+          )}
+          {tab === "skills" && skillCategories.length > 0 && (
+            <CategoryFilter categories={skillCategories} selected={selectedCategory} onSelect={setSelectedCategory} />
           )}
         </div>
-
-        {tab === "agents" && layerCategories.length > 0 && (
-          <CategoryFilter categories={layerCategories} selected={selectedCategory} onSelect={setSelectedCategory} />
-        )}
-        {tab === "skills" && skillCategories.length > 0 && (
-          <CategoryFilter categories={skillCategories} selected={selectedCategory} onSelect={setSelectedCategory} />
-        )}
-      </div>
+      )}
 
       {/* Content */}
       {tab === "agents" && (
@@ -854,7 +1179,7 @@ export function Library() {
           {filteredPersonas.map((p) => (
             <div
               key={p.id}
-              className="cursor-pointer rounded-lg border bg-card p-4 transition-shadow hover:shadow-md"
+              className="cursor-pointer rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-md"
               onClick={() => setSelectedPersona(p)}
             >
               <div className="flex items-center gap-3">
@@ -863,7 +1188,7 @@ export function Library() {
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="font-semibold">{p.name}</p>
+                    <p className="font-semibold text-foreground">{p.name}</p>
                     {p.enabled ? (
                       <CheckCircle className="h-3 w-3 text-green-500" />
                     ) : (
@@ -918,12 +1243,12 @@ export function Library() {
           {filteredSkills.map((s) => (
             <div
               key={s.id}
-              className="cursor-pointer rounded-lg border bg-card p-4 transition-shadow hover:shadow-md"
+              className="cursor-pointer rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-md"
               onClick={() => setSelectedSkill(s)}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <p className="font-semibold">{s.name}</p>
+                  <p className="font-semibold text-foreground">{s.name}</p>
                   {s.file_path && (
                     <FileText className="h-3 w-3 text-muted-foreground/40" />
                   )}
@@ -954,9 +1279,9 @@ export function Library() {
       {tab === "workflows" && (
         <div className="space-y-4">
           {workflows?.map((w) => (
-            <div key={w.id} className="rounded-lg border bg-card p-4">
+            <div key={w.id} className="rounded-lg border border-border bg-card p-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold">{w.name}</h3>
+                <h3 className="font-semibold text-foreground">{w.name}</h3>
                 {w.file_path && (
                   <FileText className="h-3.5 w-3.5 text-muted-foreground/40" />
                 )}
@@ -988,6 +1313,8 @@ export function Library() {
           ))}
         </div>
       )}
+
+      {tab === "mcp" && <McpTabContent />}
 
       {/* Detail Panels */}
       {selectedPersona && (

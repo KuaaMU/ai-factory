@@ -20,10 +20,9 @@ import {
   Search,
   Upload,
   Sparkles,
-  Server,
-  Power,
   Settings2,
   Cpu,
+  Palette,
 } from "lucide-react";
 import {
   loadSettings,
@@ -35,10 +34,6 @@ import {
   importProviders,
   detectSystem,
   installTool,
-  listMcpServers,
-  addMcpServer,
-  removeMcpServer,
-  getMcpPresets,
 } from "@/lib/tauri";
 import { useI18n } from "@/lib/i18n";
 import type {
@@ -46,8 +41,6 @@ import type {
   AiProvider,
   ToolInfo,
   DetectedProvider,
-  McpServerConfig,
-  McpPreset,
 } from "@/lib/types";
 
 // ===== Constants =====
@@ -78,7 +71,45 @@ const PROVIDER_PRESETS: Record<
   },
 };
 
-type SettingsTab = "general" | "providers" | "mcp" | "system";
+type SettingsTab = "general" | "providers" | "system";
+
+type ThemeId = "obsidian" | "cyber" | "ember";
+
+interface ThemeOption {
+  readonly id: ThemeId;
+  readonly nameEn: string;
+  readonly nameZh: string;
+  readonly bgClass: string;
+  readonly accentClass: string;
+  readonly borderClass: string;
+}
+
+const THEME_OPTIONS: readonly ThemeOption[] = [
+  {
+    id: "obsidian",
+    nameEn: "Obsidian",
+    nameZh: "\u9ed1\u66dc\u77f3",
+    bgClass: "bg-zinc-900",
+    accentClass: "bg-blue-500",
+    borderClass: "border-blue-500",
+  },
+  {
+    id: "cyber",
+    nameEn: "Cyber",
+    nameZh: "\u8d5b\u535a",
+    bgClass: "bg-slate-900",
+    accentClass: "bg-cyan-400",
+    borderClass: "border-cyan-400",
+  },
+  {
+    id: "ember",
+    nameEn: "Ember",
+    nameZh: "\u7425\u73c0",
+    bgClass: "bg-stone-900",
+    accentClass: "bg-amber-500",
+    borderClass: "border-amber-500",
+  },
+];
 
 // ===== Tab Bar =====
 
@@ -94,26 +125,79 @@ function TabBar({
   const tabs: readonly { readonly id: SettingsTab; readonly label: string; readonly icon: React.ReactNode }[] = [
     { id: "general", label: t("settings.tabGeneral"), icon: <Settings2 className="h-4 w-4" /> },
     { id: "providers", label: t("settings.tabProviders"), icon: <Cpu className="h-4 w-4" /> },
-    { id: "mcp", label: t("settings.tabMcp"), icon: <Server className="h-4 w-4" /> },
     { id: "system", label: t("settings.tabSystem"), icon: <Monitor className="h-4 w-4" /> },
   ];
 
   return (
-    <div className="flex gap-1 rounded-lg bg-zinc-900 p-1">
+    <div className="flex gap-1 rounded-lg bg-secondary p-1">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onTabChange(tab.id)}
           className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
             activeTab === tab.id
-              ? "bg-zinc-700 text-white shadow-sm"
-              : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-secondary hover:text-foreground"
           }`}
         >
           {tab.icon}
           {tab.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+// ===== Theme Selector =====
+
+function ThemeSelector({
+  currentTheme,
+  onThemeChange,
+}: {
+  readonly currentTheme: ThemeId;
+  readonly onThemeChange: (theme: ThemeId) => void;
+}) {
+  const { t, language } = useI18n();
+
+  return (
+    <div className="space-y-4 rounded-lg border border-border bg-card p-6">
+      <div className="flex items-center gap-2">
+        <Palette className="h-5 w-5 text-muted-foreground" />
+        <h2 className="font-semibold">{t("settings.themeLabel")}</h2>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {THEME_OPTIONS.map((theme) => {
+          const isSelected = currentTheme === theme.id;
+          return (
+            <button
+              key={theme.id}
+              onClick={() => onThemeChange(theme.id)}
+              className={`group relative flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
+                isSelected
+                  ? `${theme.borderClass} bg-card shadow-md`
+                  : "border-border bg-card hover:border-input"
+              }`}
+            >
+              {/* Theme preview */}
+              <div className={`flex h-12 w-full items-center justify-center rounded-md ${theme.bgClass}`}>
+                <div className={`h-3 w-3 rounded-full ${theme.accentClass}`} />
+              </div>
+              {/* Theme name */}
+              <span className="text-sm font-medium text-foreground">
+                {language === "zh"
+                  ? `${theme.nameEn} (${theme.nameZh})`
+                  : theme.nameEn}
+              </span>
+              {/* Selection indicator */}
+              {isSelected && (
+                <div className="absolute -right-1.5 -top-1.5 rounded-full bg-primary p-0.5">
+                  <Check className="h-3 w-3 text-primary-foreground" />
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -136,6 +220,7 @@ function GeneralTab({
   const [cycleTimeout, setCycleTimeout] = useState("1800");
   const [projectsDir, setProjectsDir] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [currentTheme, setCurrentTheme] = useState<ThemeId>("obsidian");
 
   useEffect(() => {
     if (settings) {
@@ -146,8 +231,17 @@ function GeneralTab({
       setLoopInterval(String(settings.loop_interval));
       setCycleTimeout(String(settings.cycle_timeout));
       setProjectsDir(settings.projects_dir);
+      const theme = settings.theme as ThemeId | undefined;
+      if (theme === "obsidian" || theme === "cyber" || theme === "ember") {
+        setCurrentTheme(theme);
+      }
     }
   }, [settings]);
+
+  // Apply theme to document
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", currentTheme);
+  }, [currentTheme]);
 
   const saveMutation = useMutation({
     mutationFn: (s: AppSettings) => saveSettingsApi(s),
@@ -157,6 +251,21 @@ function GeneralTab({
       setTimeout(() => setSaveSuccess(false), 2000);
     },
   });
+
+  const handleThemeChange = (theme: ThemeId) => {
+    setCurrentTheme(theme);
+    document.documentElement.setAttribute("data-theme", theme);
+    // Persist theme to settings
+    if (settings) {
+      const updated: AppSettings = {
+        ...settings,
+        theme,
+      };
+      saveSettingsApi(updated).then(() => {
+        queryClient.invalidateQueries({ queryKey: ["settings"] });
+      });
+    }
+  };
 
   const handleSave = () => {
     const updated: AppSettings = {
@@ -169,6 +278,7 @@ function GeneralTab({
       projects_dir: projectsDir,
       providers: settings?.providers ?? [],
       language,
+      theme: currentTheme,
       mcp_servers: settings?.mcp_servers ?? [],
     };
     saveMutation.mutate(updated);
@@ -177,9 +287,9 @@ function GeneralTab({
   return (
     <div className="space-y-6">
       {/* Language */}
-      <div className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+      <div className="space-y-4 rounded-lg border border-border bg-card p-6">
         <div className="flex items-center gap-2">
-          <Globe className="h-5 w-5 text-zinc-400" />
+          <Globe className="h-5 w-5 text-muted-foreground" />
           <h2 className="font-semibold">{t("settings.languageLabel")}</h2>
         </div>
         <div className="flex gap-2">
@@ -188,7 +298,7 @@ function GeneralTab({
             className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
               language === "en"
                 ? "bg-primary text-primary-foreground"
-                : "border border-zinc-700 hover:bg-zinc-800"
+                : "border border-input hover:bg-secondary"
             }`}
           >
             English
@@ -198,7 +308,7 @@ function GeneralTab({
             className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
               language === "zh"
                 ? "bg-primary text-primary-foreground"
-                : "border border-zinc-700 hover:bg-zinc-800"
+                : "border border-input hover:bg-secondary"
             }`}
           >
             中文
@@ -206,8 +316,14 @@ function GeneralTab({
         </div>
       </div>
 
+      {/* Theme */}
+      <ThemeSelector
+        currentTheme={currentTheme}
+        onThemeChange={handleThemeChange}
+      />
+
       {/* Runtime Defaults */}
-      <div className="space-y-6 rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+      <div className="space-y-6 rounded-lg border border-border bg-card p-6">
         <h2 className="font-semibold">{t("settings.runtimeDefaults")}</h2>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -218,7 +334,7 @@ function GeneralTab({
             <select
               value={engine}
               onChange={(e) => setEngine(e.target.value)}
-              className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="claude">Claude Code</option>
               <option value="codex">Codex CLI</option>
@@ -233,7 +349,7 @@ function GeneralTab({
             <select
               value={defaultModel}
               onChange={(e) => setDefaultModel(e.target.value)}
-              className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="opus">Opus (deepest reasoning)</option>
               <option value="sonnet">Sonnet (best coding)</option>
@@ -249,7 +365,7 @@ function GeneralTab({
               type="number"
               value={maxDailyBudget}
               onChange={(e) => setMaxDailyBudget(e.target.value)}
-              className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -261,7 +377,7 @@ function GeneralTab({
               type="number"
               value={alertAtBudget}
               onChange={(e) => setAlertAtBudget(e.target.value)}
-              className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -273,7 +389,7 @@ function GeneralTab({
               type="number"
               value={loopInterval}
               onChange={(e) => setLoopInterval(e.target.value)}
-              className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -285,7 +401,7 @@ function GeneralTab({
               type="number"
               value={cycleTimeout}
               onChange={(e) => setCycleTimeout(e.target.value)}
-              className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
         </div>
@@ -298,7 +414,7 @@ function GeneralTab({
             type="text"
             value={projectsDir}
             onChange={(e) => setProjectsDir(e.target.value)}
-            className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
 
@@ -419,7 +535,7 @@ function QuickSetupPanel({
       return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
     if (source.includes("codex"))
       return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
-    return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+    return "bg-muted text-muted-foreground";
   };
 
   return (
@@ -437,7 +553,7 @@ function QuickSetupPanel({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowExportImport((v) => !v)}
-            className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
+            className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs hover:bg-secondary"
           >
             <Upload className="h-3 w-3" />
             {t("settings.importJson")}
@@ -460,12 +576,12 @@ function QuickSetupPanel({
       </div>
 
       {showExportImport && (
-        <div className="space-y-2 rounded-md border border-zinc-700 bg-zinc-800 p-3">
+        <div className="space-y-2 rounded-md border border-input bg-secondary p-3">
           <textarea
             value={importJson}
             onChange={(e) => setImportJson(e.target.value)}
             placeholder='[{"id":"...", "name":"...", "provider_type":"...", "api_key":"...", ...}]'
-            className="h-24 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-mono focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="h-24 w-full rounded-md border border-input bg-card px-3 py-2 text-xs font-mono focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
           <div className="flex gap-2">
             <button
@@ -478,7 +594,7 @@ function QuickSetupPanel({
             </button>
             <button
               onClick={handleExport}
-              className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-3 py-1 text-xs hover:bg-zinc-800"
+              className="inline-flex items-center gap-1 rounded-md border border-input px-3 py-1 text-xs hover:bg-secondary"
             >
               <Upload className="h-3 w-3" />
               {t("settings.exportProviders")}
@@ -499,7 +615,7 @@ function QuickSetupPanel({
             <button
               onClick={handleImportAll}
               disabled={isImporting}
-              className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
+              className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs hover:bg-secondary"
             >
               <Plus className="h-3 w-3" />
               {t("settings.importAll")}
@@ -510,7 +626,7 @@ function QuickSetupPanel({
             return (
               <div
                 key={`${dp.source}-${idx}`}
-                className="flex items-center gap-3 rounded-md border border-zinc-700 bg-zinc-800 p-3"
+                className="flex items-center gap-3 rounded-md border border-input bg-secondary p-3"
               >
                 <span
                   className={`rounded-full px-2 py-0.5 text-xs font-medium ${sourceColor(dp.source)}`}
@@ -573,7 +689,7 @@ function ProviderCard({
   const [showKey, setShowKey] = useState(false);
 
   return (
-    <div className="flex items-center gap-4 rounded-md border border-zinc-700 bg-zinc-800 p-4">
+    <div className="flex items-center gap-4 rounded-md border border-input bg-secondary p-4">
       <div
         className={`h-3 w-3 rounded-full ${provider.enabled ? (provider.is_healthy ? "bg-green-500" : "bg-yellow-500") : "bg-gray-400"}`}
       />
@@ -660,7 +776,7 @@ function AddProviderForm({
   };
 
   return (
-    <div className="space-y-3 rounded-md border border-dashed border-zinc-700 p-4">
+    <div className="space-y-3 rounded-md border border-dashed border-input p-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-xs font-medium">
@@ -669,7 +785,7 @@ function AddProviderForm({
           <select
             value={providerType}
             onChange={(e) => handleTypeChange(e.target.value)}
-            className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           >
             {Object.entries(PROVIDER_PRESETS).map(([key, preset]) => (
               <option key={key} value={key}>
@@ -686,7 +802,7 @@ function AddProviderForm({
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
       </div>
@@ -699,7 +815,7 @@ function AddProviderForm({
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           placeholder="sk-..."
-          className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -711,7 +827,7 @@ function AddProviderForm({
             type="text"
             value={apiBaseUrl}
             onChange={(e) => setApiBaseUrl(e.target.value)}
-            className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
         <div>
@@ -722,7 +838,7 @@ function AddProviderForm({
             type="text"
             value={defaultModel}
             onChange={(e) => setDefaultModel(e.target.value)}
-            className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
       </div>
@@ -775,7 +891,7 @@ function ProvidersTab({
       />
 
       {/* Provider List */}
-      <div className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+      <div className="space-y-4 rounded-lg border border-border bg-card p-6">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-semibold">{t("settings.aiProviders")}</h2>
@@ -785,7 +901,7 @@ function ProvidersTab({
           </div>
           <button
             onClick={() => setShowAddProvider((v) => !v)}
-            className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-3 py-1.5 text-sm hover:bg-zinc-800"
+            className="inline-flex items-center gap-1 rounded-md border border-input px-3 py-1.5 text-sm hover:bg-secondary"
           >
             <Plus className="h-4 w-4" />
             {t("common.add")}
@@ -809,7 +925,7 @@ function ProvidersTab({
               />
             ))
           ) : (
-            <div className="flex items-center gap-2 rounded-md border border-dashed border-zinc-700 p-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 rounded-md border border-dashed border-input p-4 text-sm text-muted-foreground">
               <AlertCircle className="h-4 w-4" />
               {t("settings.noProviders")}
             </div>
@@ -820,288 +936,7 @@ function ProvidersTab({
   );
 }
 
-// ===== Tab 3: MCP Servers =====
-
-function McpPresetCard({
-  preset,
-  isAdded,
-  onAdd,
-}: {
-  readonly preset: McpPreset;
-  readonly isAdded: boolean;
-  readonly onAdd: () => void;
-}) {
-  const { t } = useI18n();
-
-  const categoryColor = (category: string) => {
-    switch (category) {
-      case "search":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
-      case "database":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-      case "cloud":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
-      case "dev":
-        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-2 rounded-md border border-zinc-700 bg-zinc-800 p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-medium">{preset.name}</p>
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${categoryColor(preset.category)}`}
-            >
-              {preset.category}
-            </span>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {preset.description}
-          </p>
-        </div>
-        <button
-          onClick={onAdd}
-          disabled={isAdded}
-          className={`inline-flex shrink-0 items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${
-            isAdded
-              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-              : "bg-primary text-primary-foreground hover:bg-primary/90"
-          } disabled:opacity-70`}
-        >
-          {isAdded ? (
-            <>
-              <Check className="h-3 w-3" />
-              {t("settings.mcpAdded")}
-            </>
-          ) : (
-            <>
-              <Plus className="h-3 w-3" />
-              {t("common.add")}
-            </>
-          )}
-        </button>
-      </div>
-      {preset.env_keys.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {preset.env_keys.map((key) => (
-            <span
-              key={key}
-              className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
-            >
-              {key}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function McpServerRow({
-  server,
-  onRemove,
-  onToggle,
-}: {
-  readonly server: McpServerConfig;
-  readonly onRemove: (id: string) => void;
-  readonly onToggle: (id: string, enabled: boolean) => void;
-}) {
-  const typeColor = (serverType: string) => {
-    switch (serverType) {
-      case "stdio":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
-      case "sse":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
-    }
-  };
-
-  const envEntries = Object.entries(server.env);
-
-  return (
-    <div className="space-y-2 rounded-md border border-zinc-700 bg-zinc-800 p-4">
-      <div className="flex items-center gap-3">
-        <div
-          className={`h-3 w-3 rounded-full ${server.enabled ? "bg-green-500" : "bg-gray-400"}`}
-        />
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <p className="font-medium">{server.name}</p>
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${typeColor(server.server_type)}`}
-            >
-              {server.server_type}
-            </span>
-          </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {server.command} {server.args.join(" ")}
-          </p>
-        </div>
-        <button
-          onClick={() => onToggle(server.id, !server.enabled)}
-          className={`rounded-md p-2 transition-colors ${
-            server.enabled
-              ? "text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
-              : "text-muted-foreground hover:bg-accent"
-          }`}
-          title={server.enabled ? "Disable" : "Enable"}
-        >
-          <Power className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => onRemove(server.id)}
-          className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
-      {envEntries.length > 0 && (
-        <div className="ml-6 space-y-1">
-          {envEntries.map(([key, value]) => (
-            <div key={key} className="flex items-center gap-2 text-xs">
-              <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-muted-foreground">
-                {key}
-              </span>
-              <span className="truncate text-muted-foreground">
-                {value || "(not set)"}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function McpTab() {
-  const { t } = useI18n();
-  const queryClient = useQueryClient();
-  const [addedPresetIds, setAddedPresetIds] = useState<Set<string>>(
-    new Set(),
-  );
-
-  const { data: mcpServers = [] } = useQuery({
-    queryKey: ["mcp-servers"],
-    queryFn: listMcpServers,
-  });
-
-  const { data: mcpPresets = [] } = useQuery({
-    queryKey: ["mcp-presets"],
-    queryFn: getMcpPresets,
-  });
-
-  const addServerMutation = useMutation({
-    mutationFn: (server: McpServerConfig) => addMcpServer(server),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["mcp-servers"] });
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
-    },
-  });
-
-  const removeServerMutation = useMutation({
-    mutationFn: (serverId: string) => removeMcpServer(serverId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["mcp-servers"] });
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
-    },
-  });
-
-  const handleAddPreset = (preset: McpPreset) => {
-    const envRecord: Record<string, string> = {};
-    for (const key of preset.env_keys) {
-      envRecord[key] = "";
-    }
-    const server: McpServerConfig = {
-      id: crypto.randomUUID(),
-      name: preset.name,
-      server_type: preset.server_type,
-      command: preset.command,
-      args: [...preset.args],
-      url: "",
-      env: envRecord,
-      enabled: true,
-      tools: [],
-    };
-    addServerMutation.mutate(server);
-    setAddedPresetIds((prev) => new Set([...prev, preset.id]));
-  };
-
-  const handleRemoveServer = (serverId: string) => {
-    removeServerMutation.mutate(serverId);
-  };
-
-  const handleToggleServer = (serverId: string, enabled: boolean) => {
-    const server = mcpServers.find((s) => s.id === serverId);
-    if (!server) return;
-    const updated: McpServerConfig = {
-      ...server,
-      enabled,
-    };
-    addServerMutation.mutate(updated);
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Presets - Quick Add */}
-      {mcpPresets.length > 0 && (
-        <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-900 p-6">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <h2 className="font-semibold">{t("settings.mcpPresets")}</h2>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {mcpPresets.map((preset) => (
-              <McpPresetCard
-                key={preset.id}
-                preset={preset}
-                isAdded={addedPresetIds.has(preset.id)}
-                onAdd={() => handleAddPreset(preset)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Configured Servers */}
-      <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-900 p-6">
-        <div className="flex items-center gap-2">
-          <Server className="h-5 w-5 text-zinc-400" />
-          <div>
-            <h2 className="font-semibold">{t("settings.mcpConfigured")}</h2>
-            <p className="text-sm text-muted-foreground">
-              {t("settings.mcpDesc")}
-            </p>
-          </div>
-        </div>
-        {mcpServers.length > 0 ? (
-          <div className="space-y-2">
-            {mcpServers.map((server) => (
-              <McpServerRow
-                key={server.id}
-                server={server}
-                onRemove={handleRemoveServer}
-                onToggle={handleToggleServer}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 rounded-md border border-dashed border-zinc-700 p-4 text-sm text-muted-foreground">
-            <AlertCircle className="h-4 w-4" />
-            {t("settings.mcpNoServers")}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ===== Tab 4: System =====
+// ===== Tab 3: System =====
 
 function ToolRow({
   tool,
@@ -1122,12 +957,12 @@ function ToolRow({
   const { t } = useI18n();
 
   return (
-    <div className="flex items-center gap-3 rounded-md border border-zinc-700 bg-zinc-800 p-3">
+    <div className="flex items-center gap-3 rounded-md border border-input bg-secondary p-3">
       <div
         className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
           tool.available
             ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-            : "bg-gray-100 text-gray-400 dark:bg-gray-800"
+            : "bg-muted text-muted-foreground"
         }`}
       >
         {tool.available ? (
@@ -1169,7 +1004,7 @@ function ToolRow({
             href={tool.install_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
+            className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs hover:bg-secondary"
           >
             <ExternalLink className="h-3 w-3" />
             {t("system.installGuide")}
@@ -1239,9 +1074,9 @@ function SystemTab() {
 
   if (isLoading || isRefetching) {
     return (
-      <div className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+      <div className="space-y-4 rounded-lg border border-border bg-card p-6">
         <div className="flex items-center gap-2">
-          <Monitor className="h-5 w-5 text-zinc-400" />
+          <Monitor className="h-5 w-5 text-muted-foreground" />
           <h2 className="font-semibold">{t("system.title")}</h2>
         </div>
         <div className="flex items-center justify-center py-8">
@@ -1256,10 +1091,10 @@ function SystemTab() {
 
   if (!systemInfo) {
     return (
-      <div className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+      <div className="space-y-4 rounded-lg border border-border bg-card p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Monitor className="h-5 w-5 text-zinc-400" />
+            <Monitor className="h-5 w-5 text-muted-foreground" />
             <div>
               <h2 className="font-semibold">{t("system.title")}</h2>
               <p className="text-sm text-muted-foreground">
@@ -1269,7 +1104,7 @@ function SystemTab() {
           </div>
           <button
             onClick={handleRefresh}
-            className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-3 py-1.5 text-sm hover:bg-zinc-800"
+            className="inline-flex items-center gap-1 rounded-md border border-input px-3 py-1.5 text-sm hover:bg-secondary"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             {t("system.refresh")}
@@ -1283,10 +1118,10 @@ function SystemTab() {
   }
 
   return (
-    <div className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+    <div className="space-y-4 rounded-lg border border-border bg-card p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Monitor className="h-5 w-5 text-zinc-400" />
+          <Monitor className="h-5 w-5 text-muted-foreground" />
           <div>
             <h2 className="font-semibold">{t("system.title")}</h2>
             <p className="text-sm text-muted-foreground">
@@ -1297,7 +1132,7 @@ function SystemTab() {
         <button
           onClick={handleRefresh}
           disabled={isRefetching}
-          className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-3 py-1.5 text-sm hover:bg-zinc-800 disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded-md border border-input px-3 py-1.5 text-sm hover:bg-secondary disabled:opacity-50"
         >
           <RefreshCw
             className={`h-3.5 w-3.5 ${isRefetching ? "animate-spin" : ""}`}
@@ -1308,15 +1143,15 @@ function SystemTab() {
 
       {/* System Info Grid */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-md border border-zinc-700 bg-zinc-800 p-3">
+        <div className="rounded-md border border-input bg-secondary p-3">
           <p className="text-xs text-muted-foreground">{t("system.os")}</p>
           <p className="font-medium capitalize">{systemInfo.os}</p>
         </div>
-        <div className="rounded-md border border-zinc-700 bg-zinc-800 p-3">
+        <div className="rounded-md border border-input bg-secondary p-3">
           <p className="text-xs text-muted-foreground">{t("system.arch")}</p>
           <p className="font-medium">{systemInfo.arch}</p>
         </div>
-        <div className="rounded-md border border-zinc-700 bg-zinc-800 p-3">
+        <div className="rounded-md border border-input bg-secondary p-3">
           <p className="text-xs text-muted-foreground">
             {t("system.nodeVersion")}
           </p>
@@ -1326,7 +1161,7 @@ function SystemTab() {
             )}
           </p>
         </div>
-        <div className="rounded-md border border-zinc-700 bg-zinc-800 p-3">
+        <div className="rounded-md border border-input bg-secondary p-3">
           <p className="text-xs text-muted-foreground">
             {t("system.npmVersion")}
           </p>
@@ -1351,7 +1186,7 @@ function SystemTab() {
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
                 shell.available
                   ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                  : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                  : "bg-muted text-muted-foreground"
               }`}
             >
               {shell.available ? (
@@ -1422,6 +1257,12 @@ export function Settings() {
     queryFn: loadSettings,
   });
 
+  // Initialize theme from settings on load
+  useEffect(() => {
+    const theme = settings?.theme ?? "obsidian";
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [settings]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -1441,7 +1282,6 @@ export function Settings() {
 
       {activeTab === "general" && <GeneralTab settings={settings} />}
       {activeTab === "providers" && <ProvidersTab settings={settings} />}
-      {activeTab === "mcp" && <McpTab />}
       {activeTab === "system" && <SystemTab />}
     </div>
   );

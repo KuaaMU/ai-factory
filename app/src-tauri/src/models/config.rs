@@ -283,11 +283,14 @@ pub struct AppSettings {
     pub providers: Vec<AiProvider>,
     #[serde(default = "default_language")]
     pub language: String,
+    #[serde(default = "default_theme")]
+    pub theme: String,
     #[serde(default)]
     pub mcp_servers: Vec<McpServerConfig>,
 }
 
 fn default_language() -> String { "en".to_string() }
+fn default_theme() -> String { "obsidian".to_string() }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiProvider {

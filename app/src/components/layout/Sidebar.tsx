@@ -108,7 +108,7 @@ export function Sidebar() {
           className={cn(
             "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
             updateState === "available"
-              ? "text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
+              ? "text-green-500 hover:bg-secondary"
               : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
           )}
         >
