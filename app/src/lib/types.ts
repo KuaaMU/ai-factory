@@ -184,6 +184,7 @@ export interface AppSettings {
   readonly cycle_timeout: number;
   readonly projects_dir: string;
   readonly providers: readonly AiProvider[];
+  readonly language: string;
 }
 
 export interface AiProvider {

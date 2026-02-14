@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, Users, Wrench, GitBranch } from "lucide-react";
 import { listPersonas, listSkills, listWorkflows } from "@/lib/tauri";
+import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type Tab = "agents" | "skills" | "workflows";
@@ -30,6 +31,7 @@ const ROLE_TO_LAYER: Record<string, string> = {
 };
 
 export function Library() {
+  const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("agents");
   const [search, setSearch] = useState("");
 
@@ -60,12 +62,19 @@ export function Library() {
       s.category.toLowerCase().includes(search.toLowerCase()),
   );
 
+  const searchPlaceholder =
+    tab === "agents"
+      ? t("library.searchAgents")
+      : tab === "skills"
+        ? t("library.searchSkills")
+        : t("library.searchWorkflows");
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Library</h1>
+        <h1 className="text-2xl font-bold">{t("library.title")}</h1>
         <p className="text-muted-foreground">
-          Browse agents, skills, and workflows
+          {t("library.subtitle")}
         </p>
       </div>
 
@@ -73,9 +82,9 @@ export function Library() {
       <div className="flex items-center gap-4 border-b">
         {(
           [
-            { id: "agents" as Tab, icon: Users, label: "Agents", count: personas?.length },
-            { id: "skills" as Tab, icon: Wrench, label: "Skills", count: skills?.length },
-            { id: "workflows" as Tab, icon: GitBranch, label: "Workflows", count: workflows?.length },
+            { id: "agents" as Tab, icon: Users, label: t("library.agents"), count: personas?.length },
+            { id: "skills" as Tab, icon: Wrench, label: t("library.skills"), count: skills?.length },
+            { id: "workflows" as Tab, icon: GitBranch, label: t("library.workflows"), count: workflows?.length },
           ] as const
         ).map(({ id, icon: Icon, label, count }) => (
           <button
@@ -106,7 +115,7 @@ export function Library() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder={`Search ${tab}...`}
+          placeholder={searchPlaceholder}
           className="w-full rounded-md border bg-background py-2 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
@@ -204,13 +213,13 @@ export function Library() {
                       {role}
                     </span>
                     {i < w.chain.length - 1 && (
-                      <span className="text-muted-foreground">→</span>
+                      <span className="text-muted-foreground">&rarr;</span>
                     )}
                   </div>
                 ))}
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                Convergence: {w.convergence_cycles} cycles
+                {t("library.convergence")}: {w.convergence_cycles} {t("common.cycles")}
               </p>
             </div>
           ))}

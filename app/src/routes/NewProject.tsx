@@ -11,6 +11,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { analyzeSeed, bootstrap, loadSettings, listPersonas } from "@/lib/tauri";
+import { useI18n } from "@/lib/i18n";
 import type { SeedAnalysis, AgentLayer, FactoryConfig } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -19,14 +20,6 @@ const EXAMPLE_PROMPTS = [
   "Create an AI-powered code review tool",
   "Build a personal finance dashboard",
   "Create a project management tool for remote teams",
-] as const;
-
-const STEPS = [
-  "Seed Prompt",
-  "Analysis",
-  "Roles",
-  "Configure",
-  "Generate",
 ] as const;
 
 const LAYER_COLORS: Record<AgentLayer, string> = {
@@ -54,6 +47,7 @@ const ROLE_TO_LAYER: Record<string, AgentLayer> = {
 
 export function NewProject() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [step, setStep] = useState(0);
   const [seedPrompt, setSeedPrompt] = useState("");
   const [analysis, setAnalysis] = useState<SeedAnalysis | null>(null);
@@ -104,7 +98,6 @@ export function NewProject() {
     [],
   );
 
-  // Auto-populate output dir from settings
   const handleConfigStep = () => {
     if (!outputDir && settings?.projects_dir) {
       const slug = seedPrompt
@@ -115,6 +108,14 @@ export function NewProject() {
     }
     setStep(3);
   };
+
+  const stepLabels = [
+    t("newProject.step.seed"),
+    t("newProject.step.analysis"),
+    t("newProject.step.roles"),
+    t("newProject.step.configure"),
+    t("newProject.step.generate"),
+  ];
 
   const canProceed =
     step === 0
@@ -130,15 +131,15 @@ export function NewProject() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Create New AI Company</h1>
+        <h1 className="text-2xl font-bold">{t("newProject.title")}</h1>
         <p className="text-muted-foreground">
-          Bootstrap an autonomous company from a single seed prompt
+          {t("newProject.subtitle")}
         </p>
       </div>
 
       {/* Step indicator */}
       <div className="flex items-center gap-2">
-        {STEPS.map((label, i) => (
+        {stepLabels.map((label, i) => (
           <div key={label} className="flex items-center gap-2">
             <div
               className={cn(
@@ -160,7 +161,7 @@ export function NewProject() {
             >
               {label}
             </span>
-            {i < STEPS.length - 1 && (
+            {i < stepLabels.length - 1 && (
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
             )}
           </div>
@@ -180,17 +181,17 @@ export function NewProject() {
         {step === 0 && (
           <div className="space-y-4">
             <label className="block text-sm font-medium">
-              What do you want to build?
+              {t("newProject.whatToBuild")}
             </label>
             <textarea
               value={seedPrompt}
               onChange={(e) => setSeedPrompt(e.target.value)}
-              placeholder="Describe your product idea in one sentence..."
+              placeholder={t("newProject.placeholder")}
               className="w-full rounded-md border bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               rows={3}
             />
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">Quick start:</p>
+              <p className="text-xs text-muted-foreground">{t("newProject.quickStart")}</p>
               <div className="flex flex-wrap gap-2">
                 {EXAMPLE_PROMPTS.map((prompt) => (
                   <button
@@ -208,29 +209,29 @@ export function NewProject() {
 
         {step === 1 && analysis && (
           <div className="space-y-4">
-            <h3 className="font-medium">Seed Analysis</h3>
+            <h3 className="font-medium">{t("newProject.seedAnalysis")}</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-md border p-3">
-                <p className="text-xs text-muted-foreground">Domain</p>
+                <p className="text-xs text-muted-foreground">{t("newProject.domain")}</p>
                 <p className="font-medium">{analysis.domain}</p>
               </div>
               <div className="rounded-md border p-3">
-                <p className="text-xs text-muted-foreground">Audience</p>
+                <p className="text-xs text-muted-foreground">{t("newProject.audience")}</p>
                 <p className="font-medium">{analysis.audience}</p>
               </div>
               <div className="rounded-md border p-3">
-                <p className="text-xs text-muted-foreground">Complexity</p>
+                <p className="text-xs text-muted-foreground">{t("newProject.complexity")}</p>
                 <p className="font-medium capitalize">{analysis.complexity}</p>
               </div>
               <div className="rounded-md border p-3">
-                <p className="text-xs text-muted-foreground">Team Size</p>
-                <p className="font-medium">{analysis.team_size} agents</p>
+                <p className="text-xs text-muted-foreground">{t("newProject.teamSize")}</p>
+                <p className="font-medium">{analysis.team_size} {t("common.agents")}</p>
               </div>
             </div>
             {analysis.features.length > 0 && (
               <div>
                 <p className="text-xs text-muted-foreground mb-2">
-                  Detected Features
+                  {t("newProject.detectedFeatures")}
                 </p>
                 <div className="flex flex-wrap gap-1">
                   {analysis.features.map((f) => (
@@ -250,9 +251,9 @@ export function NewProject() {
         {step === 2 && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-medium">Select Team Roles</h3>
+              <h3 className="font-medium">{t("newProject.selectRoles")}</h3>
               <span className="text-sm text-muted-foreground">
-                {selectedRoles.length} selected
+                {selectedRoles.length} {t("newProject.selected")}
               </span>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -293,11 +294,11 @@ export function NewProject() {
 
         {step === 3 && (
           <div className="space-y-4">
-            <h3 className="font-medium">Configuration</h3>
+            <h3 className="font-medium">{t("newProject.configuration")}</h3>
             <div>
               <label className="mb-1 flex items-center gap-2 text-sm font-medium">
                 <FolderOpen className="h-4 w-4" />
-                Output Directory
+                {t("newProject.outputDir")}
               </label>
               <input
                 type="text"
@@ -307,7 +308,7 @@ export function NewProject() {
                 className="w-full rounded-md border bg-background px-4 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                All project files (agents, consensus, scripts, logs) will be created here
+                {t("newProject.outputDirHint")}
               </p>
             </div>
           </div>
@@ -318,9 +319,9 @@ export function NewProject() {
             {bootstrapMutation.isPending ? (
               <>
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="font-medium">Creating your AI company...</p>
+                <p className="font-medium">{t("newProject.creating")}</p>
                 <p className="text-sm text-muted-foreground">
-                  Generating agents, scripts, consensus, and configuration files
+                  {t("newProject.creatingDesc")}
                 </p>
               </>
             ) : generatedConfig ? (
@@ -328,17 +329,17 @@ export function NewProject() {
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
                   <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
                 </div>
-                <p className="font-medium">Company created successfully!</p>
+                <p className="font-medium">{t("newProject.success")}</p>
                 <div className="text-center text-sm text-muted-foreground">
-                  <p>{generatedConfig.org.agents.length} agents configured</p>
-                  <p>{generatedConfig.workflows.length} workflows set up</p>
-                  <p>Output: {outputDir}</p>
+                  <p>{generatedConfig.org.agents.length} {t("newProject.agentsConfigured")}</p>
+                  <p>{generatedConfig.workflows.length} {t("newProject.workflowsSetUp")}</p>
+                  <p>{t("newProject.output")}: {outputDir}</p>
                 </div>
                 <button
                   onClick={() => navigate("/")}
                   className="mt-2 inline-flex items-center gap-2 rounded-md bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
                 >
-                  Go to Dashboard
+                  {t("newProject.goToDashboard")}
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </>
@@ -346,11 +347,11 @@ export function NewProject() {
               <>
                 <Sparkles className="h-12 w-12 text-primary" />
                 <p className="text-center">
-                  Ready to generate your AI company with{" "}
-                  <strong>{selectedRoles.length} agents</strong>
+                  {t("newProject.readyToGenerate")}{" "}
+                  <strong>{selectedRoles.length} {t("common.agents")}</strong>
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  This will create all project files in {outputDir}
+                  {t("newProject.willCreate")} {outputDir}
                 </p>
               </>
             )}
@@ -369,7 +370,7 @@ export function NewProject() {
           className="inline-flex items-center gap-1 rounded-md px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
         >
           <ChevronLeft className="h-4 w-4" />
-          Back
+          {t("common.back")}
         </button>
         {step < 4 && (
           <button
@@ -393,11 +394,11 @@ export function NewProject() {
             ) : step === 3 ? (
               <>
                 <Sparkles className="h-4 w-4" />
-                Create Company
+                {t("newProject.createCompany")}
               </>
             ) : (
               <>
-                Next
+                {t("common.next")}
                 <ChevronRight className="h-4 w-4" />
               </>
             )}

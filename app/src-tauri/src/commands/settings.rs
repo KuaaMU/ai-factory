@@ -24,6 +24,7 @@ fn default_settings() -> AppSettings {
             .display()
             .to_string(),
         providers: vec![],
+        language: "en".to_string(),
     }
 }
 

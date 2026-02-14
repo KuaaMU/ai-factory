@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use tauri::command;
 use crate::engine;
 use crate::models::*;
+use crate::commands::library;
 
 #[command]
 pub fn analyze_seed(prompt: String) -> Result<SeedAnalysis, String> {
@@ -25,6 +26,9 @@ pub fn bootstrap(prompt: String, output_dir: String) -> Result<FactoryConfig, St
     // Auto-generate all project files immediately
     let templates_dir = dir.join("templates");
     engine::generator::generate_all(&config, &dir, &templates_dir)?;
+
+    // Register project in the global registry so Dashboard can find it
+    library::register_project(&config.company.name, &output_dir)?;
 
     Ok(config)
 }

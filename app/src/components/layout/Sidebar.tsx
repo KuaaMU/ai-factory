@@ -5,17 +5,21 @@ import {
   BookOpen,
   Settings,
   Factory,
+  Globe,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const navItems = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/new", icon: Plus, label: "New Project" },
-  { to: "/library", icon: BookOpen, label: "Library" },
-  { to: "/settings", icon: Settings, label: "Settings" },
-] as const;
+import { useI18n } from "@/lib/i18n";
 
 export function Sidebar() {
+  const { t, language, setLanguage } = useI18n();
+
+  const navItems = [
+    { to: "/", icon: LayoutDashboard, label: t("sidebar.dashboard") },
+    { to: "/new", icon: Plus, label: t("sidebar.newProject") },
+    { to: "/library", icon: BookOpen, label: t("sidebar.library") },
+    { to: "/settings", icon: Settings, label: t("sidebar.settings") },
+  ] as const;
+
   return (
     <aside className="flex h-full w-60 flex-col border-r bg-card">
       {/* Logo */}
@@ -45,9 +49,16 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Footer */}
-      <div className="border-t px-4 py-3">
-        <p className="text-xs text-muted-foreground">AI Factory v0.1.0</p>
+      {/* Language toggle + Footer */}
+      <div className="border-t px-4 py-3 space-y-2">
+        <button
+          onClick={() => setLanguage(language === "en" ? "zh" : "en")}
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+        >
+          <Globe className="h-4 w-4" />
+          <span>{language === "en" ? "中文" : "English"}</span>
+        </button>
+        <p className="text-xs text-muted-foreground">{t("sidebar.version")}</p>
       </div>
     </aside>
   );

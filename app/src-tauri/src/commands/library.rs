@@ -2,9 +2,63 @@ use std::path::PathBuf;
 use tauri::command;
 use crate::models::*;
 
+fn get_registry_path() -> PathBuf {
+    dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("ai-factory")
+        .join("projects.json")
+}
+
+fn load_registry() -> ProjectRegistry {
+    let path = get_registry_path();
+    if !path.exists() {
+        return ProjectRegistry::default();
+    }
+    std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|c| serde_json::from_str(&c).ok())
+        .unwrap_or_default()
+}
+
+fn save_registry(registry: &ProjectRegistry) -> Result<(), String> {
+    let path = get_registry_path();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create registry dir: {}", e))?;
+    }
+    let json = serde_json::to_string_pretty(registry)
+        .map_err(|e| format!("Serialize error: {}", e))?;
+    std::fs::write(&path, &json)
+        .map_err(|e| format!("Write error: {}", e))?;
+    Ok(())
+}
+
+pub fn register_project(name: &str, output_dir: &str) -> Result<(), String> {
+    let mut registry = load_registry();
+
+    // Remove any existing entry with same output_dir
+    registry.projects.retain(|p| p.output_dir != output_dir);
+
+    let id = PathBuf::from(output_dir)
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+
+    registry.projects.push(ProjectRegistryEntry {
+        id,
+        name: name.to_string(),
+        output_dir: output_dir.to_string(),
+        created_at: chrono::Local::now().format("%+").to_string(),
+    });
+
+    save_registry(&registry)
+}
+
+// ===== Persona / Skill / Workflow commands (unchanged) =====
+
 #[command]
 pub fn list_personas() -> Result<Vec<PersonaInfo>, String> {
-    // Return built-in persona list
     Ok(vec![
         PersonaInfo {
             id: "jeff-bezos".to_string(),
@@ -107,10 +161,8 @@ pub fn list_personas() -> Result<Vec<PersonaInfo>, String> {
 
 #[command]
 pub fn list_skills() -> Result<Vec<SkillInfo>, String> {
-    // Scan library directories for skills
     let mut skills = Vec::new();
 
-    // Built-in skill list (from auto-company)
     let auto_company_skills = vec![
         ("deep-research", "Research", "Comprehensive research methodology with multi-source validation"),
         ("product-strategist", "Product", "Product strategy framework for feature prioritization"),
@@ -140,7 +192,6 @@ pub fn list_skills() -> Result<Vec<SkillInfo>, String> {
         });
     }
 
-    // ECC skills
     let ecc_skills = vec![
         ("tdd-workflow", "Engineering", "Test-driven development workflow"),
         ("security-review", "Security", "Security vulnerability review"),
@@ -174,98 +225,62 @@ pub fn list_skills() -> Result<Vec<SkillInfo>, String> {
 #[command]
 pub fn list_workflows() -> Result<Vec<WorkflowInfo>, String> {
     Ok(vec![
-        WorkflowInfo {
-            id: "pricing-monetization".to_string(),
-            name: "Pricing & Monetization".to_string(),
-            description: "End-to-end pricing strategy workflow from willingness-to-pay research through competitive analysis, financial modeling, packaging design, and implementation planning.".to_string(),
-            chain: vec!["research".to_string(), "cfo".to_string(), "product".to_string(), "marketing".to_string(), "critic".to_string(), "cfo".to_string()],
-            convergence_cycles: 2,
-        },
-        WorkflowInfo {
-            id: "product-launch".to_string(),
-            name: "Product Launch".to_string(),
-            description: "Coordinated product launch workflow covering positioning, content, sales enablement, technical readiness, and launch execution.".to_string(),
-            chain: vec!["marketing".to_string(), "research".to_string(), "sales".to_string(), "marketing".to_string(), "devops".to_string(), "ceo".to_string()],
-            convergence_cycles: 2,
-        },
-        WorkflowInfo {
-            id: "weekly-review".to_string(),
-            name: "Weekly Review".to_string(),
-            description: "Weekly strategic review cycle that analyzes performance metrics, competitive developments, user feedback, and technical health.".to_string(),
-            chain: vec!["research".to_string(), "cfo".to_string(), "marketing".to_string(), "qa".to_string(), "ceo".to_string(), "critic".to_string()],
-            convergence_cycles: 1,
-        },
-        WorkflowInfo {
-            id: "new-product-eval".to_string(),
-            name: "New Product Evaluation".to_string(),
-            description: "Evaluate new product ideas through market research, competitive analysis, and strategic review.".to_string(),
-            chain: vec!["research".to_string(), "product".to_string(), "cfo".to_string(), "critic".to_string(), "ceo".to_string()],
-            convergence_cycles: 2,
-        },
-        WorkflowInfo {
-            id: "feature-development".to_string(),
-            name: "Feature Development".to_string(),
-            description: "End-to-end feature development from spec to deployment with quality gates.".to_string(),
-            chain: vec!["product".to_string(), "fullstack".to_string(), "qa".to_string(), "devops".to_string()],
-            convergence_cycles: 1,
-        },
-        WorkflowInfo {
-            id: "opportunity-discovery".to_string(),
-            name: "Opportunity Discovery".to_string(),
-            description: "Discover and validate new market opportunities through research and analysis.".to_string(),
-            chain: vec!["research".to_string(), "marketing".to_string(), "sales".to_string(), "cfo".to_string(), "ceo".to_string()],
-            convergence_cycles: 2,
-        },
+        WorkflowInfo { id: "pricing-monetization".to_string(), name: "Pricing & Monetization".to_string(), description: "End-to-end pricing strategy workflow.".to_string(), chain: vec!["research".to_string(), "cfo".to_string(), "product".to_string(), "marketing".to_string(), "critic".to_string(), "cfo".to_string()], convergence_cycles: 2 },
+        WorkflowInfo { id: "product-launch".to_string(), name: "Product Launch".to_string(), description: "Coordinated product launch workflow.".to_string(), chain: vec!["marketing".to_string(), "research".to_string(), "sales".to_string(), "marketing".to_string(), "devops".to_string(), "ceo".to_string()], convergence_cycles: 2 },
+        WorkflowInfo { id: "weekly-review".to_string(), name: "Weekly Review".to_string(), description: "Weekly strategic review cycle.".to_string(), chain: vec!["research".to_string(), "cfo".to_string(), "marketing".to_string(), "qa".to_string(), "ceo".to_string(), "critic".to_string()], convergence_cycles: 1 },
+        WorkflowInfo { id: "new-product-eval".to_string(), name: "New Product Evaluation".to_string(), description: "Evaluate new product ideas.".to_string(), chain: vec!["research".to_string(), "product".to_string(), "cfo".to_string(), "critic".to_string(), "ceo".to_string()], convergence_cycles: 2 },
+        WorkflowInfo { id: "feature-development".to_string(), name: "Feature Development".to_string(), description: "End-to-end feature development.".to_string(), chain: vec!["product".to_string(), "fullstack".to_string(), "qa".to_string(), "devops".to_string()], convergence_cycles: 1 },
+        WorkflowInfo { id: "opportunity-discovery".to_string(), name: "Opportunity Discovery".to_string(), description: "Discover and validate market opportunities.".to_string(), chain: vec!["research".to_string(), "marketing".to_string(), "sales".to_string(), "cfo".to_string(), "ceo".to_string()], convergence_cycles: 2 },
     ])
 }
 
-// ===== Project Management =====
+// ===== Project Management (registry-based) =====
 
 #[command]
 pub fn list_projects() -> Result<Vec<Project>, String> {
-    let projects_dir = get_projects_base_dir()?;
+    let registry = load_registry();
     let mut projects = Vec::new();
 
-    if !projects_dir.exists() {
-        return Ok(projects);
-    }
+    for entry in &registry.projects {
+        let path = PathBuf::from(&entry.output_dir);
+        let config_path = path.join("company.yaml");
 
-    if let Ok(entries) = std::fs::read_dir(&projects_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                let config_path = path.join("company.yaml");
-                if config_path.exists() {
-                    if let Ok(content) = std::fs::read_to_string(&config_path) {
-                        if let Ok(config) = serde_yaml::from_str::<crate::models::FactoryConfig>(&content) {
-                            let id = path.file_name()
-                                .unwrap_or_default()
-                                .to_string_lossy()
-                                .to_string();
-                            let metadata = std::fs::metadata(&config_path).ok();
-                            let created = metadata.as_ref()
-                                .and_then(|m| m.created().ok())
-                                .map(|t| format!("{:?}", t))
-                                .unwrap_or_default();
+        if !config_path.exists() {
+            continue;
+        }
 
-                            projects.push(Project {
-                                id: id.clone(),
-                                name: config.company.name,
-                                seed_prompt: config.company.seed_prompt,
-                                output_dir: path.display().to_string(),
-                                created_at: created.clone(),
-                                last_active_at: created,
-                                status: if path.join(".loop.pid").exists() {
-                                    ProjectStatus::Running
-                                } else {
-                                    ProjectStatus::Stopped
-                                },
-                                agent_count: config.org.agents.len(),
-                                cycle_count: 0,
-                            });
-                        }
+        if let Ok(content) = std::fs::read_to_string(&config_path) {
+            if let Ok(config) = serde_yaml::from_str::<crate::models::FactoryConfig>(&content) {
+                let status = if path.join(".loop.pid").exists() {
+                    ProjectStatus::Running
+                } else if path.join(".loop.state").exists() {
+                    let state = std::fs::read_to_string(path.join(".loop.state")).unwrap_or_default();
+                    if state.contains("status=error") {
+                        ProjectStatus::Error
+                    } else {
+                        ProjectStatus::Stopped
                     }
-                }
+                } else {
+                    ProjectStatus::Initializing
+                };
+
+                let cycle_count = path.join(".cycle_history.json")
+                    .pipe(|p| std::fs::read_to_string(p).ok())
+                    .and_then(|c| serde_json::from_str::<Vec<serde_json::Value>>(&c).ok())
+                    .map(|v| v.len() as u32)
+                    .unwrap_or(0);
+
+                projects.push(Project {
+                    id: entry.id.clone(),
+                    name: config.company.name,
+                    seed_prompt: config.company.seed_prompt,
+                    output_dir: entry.output_dir.clone(),
+                    created_at: entry.created_at.clone(),
+                    last_active_at: entry.created_at.clone(),
+                    status,
+                    agent_count: config.org.agents.len(),
+                    cycle_count,
+                });
             }
         }
     }
@@ -283,22 +298,28 @@ pub fn get_project(id: String) -> Result<Project, String> {
 
 #[command]
 pub fn delete_project(id: String) -> Result<bool, String> {
-    let projects_dir = get_projects_base_dir()?;
-    let path = projects_dir.join(&id);
-    if path.exists() {
-        std::fs::remove_dir_all(&path)
-            .map_err(|e| format!("Failed to delete: {}", e))?;
+    let mut registry = load_registry();
+
+    let entry = registry.projects.iter().find(|p| p.id == id).cloned();
+
+    if let Some(entry) = entry {
+        let path = PathBuf::from(&entry.output_dir);
+        if path.exists() {
+            std::fs::remove_dir_all(&path)
+                .map_err(|e| format!("Failed to delete: {}", e))?;
+        }
+        registry.projects.retain(|p| p.id != id);
+        save_registry(&registry)?;
         Ok(true)
     } else {
         Ok(false)
     }
 }
 
-fn get_projects_base_dir() -> Result<PathBuf, String> {
-    // Default to a standard location
-    let base = dirs::data_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("ai-factory")
-        .join("projects");
-    Ok(base)
+// Helper trait for pipe
+trait Pipe: Sized {
+    fn pipe<F, R>(self, f: F) -> R where F: FnOnce(Self) -> R {
+        f(self)
+    }
 }
+impl<T> Pipe for T {}

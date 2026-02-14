@@ -26,12 +26,14 @@ import {
   deleteProject,
   loadSettings,
 } from "@/lib/tauri";
+import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
 
   const { data: project, isLoading: projectLoading } = useQuery({
@@ -140,7 +142,7 @@ export function ProjectDetail() {
               ) : (
                 <Square className="h-4 w-4" />
               )}
-              Stop
+              {t("common.stop")}
             </button>
           ) : (
             <button
@@ -153,12 +155,12 @@ export function ProjectDetail() {
               ) : (
                 <Play className="h-4 w-4" />
               )}
-              Start
+              {t("common.start")}
             </button>
           )}
           <button
             onClick={() => {
-              if (window.confirm("Delete this project? This cannot be undone.")) {
+              if (window.confirm(t("projectDetail.deleteConfirm"))) {
                 deleteMutation.mutate();
               }
             }}
@@ -182,7 +184,7 @@ export function ProjectDetail() {
         <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Activity className="h-4 w-4" />
-            <span className="text-sm">Status</span>
+            <span className="text-sm">{t("projectDetail.status")}</span>
           </div>
           <div className="mt-1 flex items-center gap-2">
             <span
@@ -192,7 +194,7 @@ export function ProjectDetail() {
               )}
             />
             <p className="font-semibold capitalize">
-              {status?.is_running ? "Running" : "Stopped"}
+              {status?.is_running ? t("projectDetail.running") : t("projectDetail.stopped")}
             </p>
           </div>
           {status?.pid && (
@@ -202,26 +204,26 @@ export function ProjectDetail() {
         <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center gap-2 text-muted-foreground">
             <RefreshCw className="h-4 w-4" />
-            <span className="text-sm">Cycles</span>
+            <span className="text-sm">{t("projectDetail.cycles")}</span>
           </div>
           <p className="mt-1 font-semibold">{status?.total_cycles ?? 0}</p>
           {(status?.consecutive_errors ?? 0) > 0 && (
             <p className="mt-1 text-xs text-red-500">
-              {status?.consecutive_errors} errors
+              {status?.consecutive_errors} {t("projectDetail.errors")}
             </p>
           )}
         </div>
         <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Users className="h-4 w-4" />
-            <span className="text-sm">Agents</span>
+            <span className="text-sm">{t("projectDetail.agents")}</span>
           </div>
           <p className="mt-1 font-semibold">{project.agent_count}</p>
         </div>
         <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center gap-2 text-muted-foreground">
             <FileText className="h-4 w-4" />
-            <span className="text-sm">Consensus</span>
+            <span className="text-sm">{t("projectDetail.consensus")}</span>
           </div>
           <p className="mt-1 font-semibold capitalize">
             {consensus?.status ?? "unknown"}
@@ -236,33 +238,33 @@ export function ProjectDetail() {
         {/* Consensus panel */}
         <div className="rounded-lg border bg-card">
           <div className="border-b px-4 py-3">
-            <h2 className="font-semibold">Consensus</h2>
+            <h2 className="font-semibold">{t("projectDetail.consensus")}</h2>
           </div>
           <div className="p-4">
             {consensus ? (
               <div className="space-y-3 text-sm">
                 <div>
-                  <span className="font-medium text-muted-foreground">Focus: </span>
-                  <span>{consensus.current_focus || "Not set"}</span>
+                  <span className="font-medium text-muted-foreground">{t("projectDetail.focus")}: </span>
+                  <span>{consensus.current_focus || t("projectDetail.notSet")}</span>
                 </div>
                 <div>
-                  <span className="font-medium text-muted-foreground">Next: </span>
-                  <span>{consensus.next_action || "Not set"}</span>
+                  <span className="font-medium text-muted-foreground">{t("projectDetail.next")}: </span>
+                  <span>{consensus.next_action || t("projectDetail.notSet")}</span>
                 </div>
                 <div>
-                  <span className="font-medium text-muted-foreground">Revenue: </span>
+                  <span className="font-medium text-muted-foreground">{t("projectDetail.revenue")}: </span>
                   <span>{consensus.revenue}</span>
                 </div>
                 {consensus.active_projects.length > 0 && (
                   <div>
-                    <span className="font-medium text-muted-foreground">Projects: </span>
+                    <span className="font-medium text-muted-foreground">{t("projectDetail.projects")}: </span>
                     <span>{consensus.active_projects.join(", ")}</span>
                   </div>
                 )}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Consensus not initialized. Start the loop to begin.
+                {t("projectDetail.consensusNotInit")}
               </p>
             )}
           </div>
@@ -271,7 +273,7 @@ export function ProjectDetail() {
         {/* Cycle history */}
         <div className="rounded-lg border bg-card">
           <div className="border-b px-4 py-3">
-            <h2 className="font-semibold">Recent Cycles</h2>
+            <h2 className="font-semibold">{t("projectDetail.recentCycles")}</h2>
           </div>
           <div className="max-h-64 overflow-auto p-4">
             {cycles && cycles.length > 0 ? (
@@ -301,7 +303,7 @@ export function ProjectDetail() {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                No cycles yet. Start the loop to begin.
+                {t("projectDetail.noCycles")}
               </p>
             )}
           </div>
@@ -313,12 +315,12 @@ export function ProjectDetail() {
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div className="flex items-center gap-2">
             <Terminal className="h-4 w-4" />
-            <h2 className="font-semibold">Logs</h2>
+            <h2 className="font-semibold">{t("projectDetail.logs")}</h2>
           </div>
           {status?.is_running && (
             <span className="flex items-center gap-1.5 text-xs text-green-600">
               <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
-              Live
+              {t("common.live")}
             </span>
           )}
         </div>
@@ -326,7 +328,7 @@ export function ProjectDetail() {
           <pre className="whitespace-pre-wrap font-mono text-xs text-green-400">
             {logs && logs.length > 0
               ? logs.join("\n")
-              : "Waiting for log output... Start the loop to begin."}
+              : t("projectDetail.waitingForLogs")}
           </pre>
         </div>
       </div>

@@ -263,7 +263,11 @@ pub struct AppSettings {
     pub cycle_timeout: u32,
     pub projects_dir: String,
     pub providers: Vec<AiProvider>,
+    #[serde(default = "default_language")]
+    pub language: String,
 }
+
+fn default_language() -> String { "en".to_string() }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiProvider {
@@ -276,6 +280,21 @@ pub struct AiProvider {
     pub enabled: bool,
     pub is_healthy: bool,
     pub last_error: Option<String>,
+}
+
+// ===== Project Registry =====
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectRegistryEntry {
+    pub id: String,
+    pub name: String,
+    pub output_dir: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ProjectRegistry {
+    pub projects: Vec<ProjectRegistryEntry>,
 }
 
 // ===== Log Event =====

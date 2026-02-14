@@ -2,10 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Plus, Play, Square, Clock } from "lucide-react";
 import { listProjects } from "@/lib/tauri";
+import { useI18n } from "@/lib/i18n";
 import type { Project } from "@/lib/types";
 
 function ProjectCard({ project }: { readonly project: Project }) {
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   const statusColor: Record<string, string> = {
     running: "bg-green-500",
@@ -32,11 +34,11 @@ function ProjectCard({ project }: { readonly project: Project }) {
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
           <Play className="h-3 w-3" />
-          {project.agent_count} agents
+          {project.agent_count} {t("common.agents")}
         </span>
         <span className="flex items-center gap-1">
           <Clock className="h-3 w-3" />
-          {project.cycle_count} cycles
+          {project.cycle_count} {t("common.cycles")}
         </span>
       </div>
     </button>
@@ -45,6 +47,7 @@ function ProjectCard({ project }: { readonly project: Project }) {
 
 export function Dashboard() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const { data: projects, isLoading } = useQuery({
     queryKey: ["projects"],
     queryFn: listProjects,
@@ -54,9 +57,9 @@ export function Dashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <h1 className="text-2xl font-bold">{t("dashboard.title")}</h1>
           <p className="text-muted-foreground">
-            Manage your autonomous AI companies
+            {t("dashboard.subtitle")}
           </p>
         </div>
         <button
@@ -64,7 +67,7 @@ export function Dashboard() {
           className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
-          New Project
+          {t("dashboard.newProject")}
         </button>
       </div>
 
@@ -76,9 +79,9 @@ export function Dashboard() {
         <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed py-20">
           <Square className="h-12 w-12 text-muted-foreground" />
           <div className="text-center">
-            <p className="font-medium">No projects yet</p>
+            <p className="font-medium">{t("dashboard.noProjects")}</p>
             <p className="text-sm text-muted-foreground">
-              Create your first AI company from a seed prompt
+              {t("dashboard.noProjectsDesc")}
             </p>
           </div>
           <button
@@ -86,7 +89,7 @@ export function Dashboard() {
             className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
             <Plus className="h-4 w-4" />
-            Create Project
+            {t("dashboard.createProject")}
           </button>
         </div>
       ) : (

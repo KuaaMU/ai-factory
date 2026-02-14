@@ -9,6 +9,7 @@ import {
   Eye,
   EyeOff,
   Loader2,
+  Globe,
 } from "lucide-react";
 import {
   loadSettings,
@@ -16,6 +17,7 @@ import {
   addProvider,
   removeProvider,
 } from "@/lib/tauri";
+import { useI18n } from "@/lib/i18n";
 import type { AppSettings, AiProvider } from "@/lib/types";
 
 const PROVIDER_PRESETS: Record<
@@ -103,6 +105,7 @@ function AddProviderForm({
   readonly onAdd: (provider: AiProvider) => void;
   readonly isPending: boolean;
 }) {
+  const { t } = useI18n();
   const [providerType, setProviderType] = useState("claude");
   const [apiKey, setApiKey] = useState("");
   const [apiBaseUrl, setApiBaseUrl] = useState(
@@ -144,7 +147,7 @@ function AddProviderForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-xs font-medium">
-            Provider Type
+            {t("settings.providerType")}
           </label>
           <select
             value={providerType}
@@ -160,7 +163,7 @@ function AddProviderForm({
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium">
-            Display Name
+            {t("settings.displayName")}
           </label>
           <input
             type="text"
@@ -171,7 +174,7 @@ function AddProviderForm({
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium">API Key</label>
+        <label className="mb-1 block text-xs font-medium">{t("settings.apiKey")}</label>
         <input
           type="password"
           value={apiKey}
@@ -183,7 +186,7 @@ function AddProviderForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-xs font-medium">
-            API Base URL
+            {t("settings.apiBaseUrl")}
           </label>
           <input
             type="text"
@@ -194,7 +197,7 @@ function AddProviderForm({
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium">
-            Default Model
+            {t("settings.defaultModel")}
           </label>
           <input
             type="text"
@@ -214,7 +217,7 @@ function AddProviderForm({
         ) : (
           <Plus className="h-4 w-4" />
         )}
-        Add Provider
+        {t("settings.addProvider")}
       </button>
     </div>
   );
@@ -222,6 +225,7 @@ function AddProviderForm({
 
 export function Settings() {
   const queryClient = useQueryClient();
+  const { t, language, setLanguage } = useI18n();
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["settings"],
@@ -285,6 +289,7 @@ export function Settings() {
       cycle_timeout: parseInt(cycleTimeout) || 1800,
       projects_dir: projectsDir,
       providers: settings?.providers ?? [],
+      language,
     };
     saveMutation.mutate(updated);
   };
@@ -300,17 +305,47 @@ export function Settings() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">Configure AI Factory defaults</p>
+        <h1 className="text-2xl font-bold">{t("settings.title")}</h1>
+        <p className="text-muted-foreground">{t("settings.subtitle")}</p>
+      </div>
+
+      {/* Language */}
+      <div className="space-y-4 rounded-lg border bg-card p-6">
+        <div className="flex items-center gap-2">
+          <Globe className="h-5 w-5 text-muted-foreground" />
+          <h2 className="font-semibold">{t("settings.languageLabel")}</h2>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setLanguage("en")}
+            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              language === "en"
+                ? "bg-primary text-primary-foreground"
+                : "border hover:bg-accent"
+            }`}
+          >
+            English
+          </button>
+          <button
+            onClick={() => setLanguage("zh")}
+            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              language === "zh"
+                ? "bg-primary text-primary-foreground"
+                : "border hover:bg-accent"
+            }`}
+          >
+            中文
+          </button>
+        </div>
       </div>
 
       {/* AI Providers */}
       <div className="space-y-4 rounded-lg border bg-card p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-semibold">AI Providers</h2>
+            <h2 className="font-semibold">{t("settings.aiProviders")}</h2>
             <p className="text-sm text-muted-foreground">
-              Configure API keys and endpoints for your AI providers
+              {t("settings.aiProvidersDesc")}
             </p>
           </div>
           <button
@@ -318,7 +353,7 @@ export function Settings() {
             className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm hover:bg-accent"
           >
             <Plus className="h-4 w-4" />
-            Add
+            {t("common.add")}
           </button>
         </div>
 
@@ -341,7 +376,7 @@ export function Settings() {
           ) : (
             <div className="flex items-center gap-2 rounded-md border border-dashed p-4 text-sm text-muted-foreground">
               <AlertCircle className="h-4 w-4" />
-              No providers configured. Add one to get started.
+              {t("settings.noProviders")}
             </div>
           )}
         </div>
@@ -349,13 +384,13 @@ export function Settings() {
 
       {/* General Settings */}
       <div className="space-y-6 rounded-lg border bg-card p-6">
-        <h2 className="font-semibold">Runtime Defaults</h2>
+        <h2 className="font-semibold">{t("settings.runtimeDefaults")}</h2>
 
         <div className="grid gap-4 sm:grid-cols-2">
           {/* Engine */}
           <div>
             <label className="mb-1 block text-sm font-medium">
-              Default Engine
+              {t("settings.defaultEngine")}
             </label>
             <select
               value={engine}
@@ -370,7 +405,7 @@ export function Settings() {
           {/* Model */}
           <div>
             <label className="mb-1 block text-sm font-medium">
-              Default Model
+              {t("settings.model")}
             </label>
             <select
               value={defaultModel}
@@ -386,7 +421,7 @@ export function Settings() {
           {/* Budget */}
           <div>
             <label className="mb-1 block text-sm font-medium">
-              Max Daily Budget (USD)
+              {t("settings.maxDailyBudget")}
             </label>
             <input
               type="number"
@@ -399,7 +434,7 @@ export function Settings() {
           {/* Alert budget */}
           <div>
             <label className="mb-1 block text-sm font-medium">
-              Alert At (USD)
+              {t("settings.alertAt")}
             </label>
             <input
               type="number"
@@ -412,7 +447,7 @@ export function Settings() {
           {/* Loop Interval */}
           <div>
             <label className="mb-1 block text-sm font-medium">
-              Loop Interval (seconds)
+              {t("settings.loopInterval")}
             </label>
             <input
               type="number"
@@ -425,7 +460,7 @@ export function Settings() {
           {/* Cycle Timeout */}
           <div>
             <label className="mb-1 block text-sm font-medium">
-              Cycle Timeout (seconds)
+              {t("settings.cycleTimeout")}
             </label>
             <input
               type="number"
@@ -439,7 +474,7 @@ export function Settings() {
         {/* Projects dir - full width */}
         <div>
           <label className="mb-1 block text-sm font-medium">
-            Projects Directory
+            {t("settings.projectsDir")}
           </label>
           <input
             type="text"
@@ -462,11 +497,11 @@ export function Settings() {
             ) : (
               <Save className="h-4 w-4" />
             )}
-            {saveSuccess ? "Saved" : "Save Settings"}
+            {saveSuccess ? t("common.saved") : t("settings.saveSettings")}
           </button>
           {saveMutation.isError && (
             <span className="text-sm text-destructive">
-              Failed to save settings
+              {t("settings.saveFailed")}
             </span>
           )}
         </div>
