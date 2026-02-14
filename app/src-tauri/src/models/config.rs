@@ -269,6 +269,28 @@ pub struct GenerateResult {
     pub workflow_count: usize,
 }
 
+// ===== Skill Repository =====
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillRepo {
+    pub id: String,
+    pub name: String,
+    pub owner: String,           // GitHub owner, e.g. "anthropics"
+    pub repo: String,            // GitHub repo name, e.g. "skills"
+    pub branch: String,          // branch name, e.g. "main"
+    pub path: String,            // subdirectory within repo, e.g. "skills"
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RepoItem {
+    pub name: String,
+    pub path: String,
+    pub item_type: String,       // "file" or "dir"
+    pub download_url: Option<String>,
+    pub description: String,
+}
+
 // ===== App Settings =====
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -287,6 +309,8 @@ pub struct AppSettings {
     pub theme: String,
     #[serde(default)]
     pub mcp_servers: Vec<McpServerConfig>,
+    #[serde(default)]
+    pub skill_repos: Vec<SkillRepo>,
 }
 
 fn default_language() -> String { "en".to_string() }

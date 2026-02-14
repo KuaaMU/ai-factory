@@ -11,7 +11,7 @@ const en = {
   "sidebar.newProject": "New Project",
   "sidebar.library": "Library",
   "sidebar.settings": "Settings",
-  "sidebar.version": "AI Factory v0.2.1",
+  "sidebar.version": "AI Factory v0.2.2",
   "sidebar.checkUpdate": "Check for Updates",
   "sidebar.checking": "Checking...",
   "sidebar.updateAvailable": "Update Available",
@@ -215,6 +215,22 @@ const en = {
   "library.source": "Source",
   "library.path": "Path",
   "library.removeConfirm": "Remove this item? This cannot be undone.",
+
+  // Repository Management
+  "library.repos": "Repositories",
+  "library.reposDesc": "Browse and install skills from GitHub repositories",
+  "library.addRepo": "Add Repository",
+  "library.removeRepo": "Remove",
+  "library.browseRepo": "Browse",
+  "library.browsing": "Loading...",
+  "library.noRepos": "No repositories configured. Add a GitHub repository to discover skills.",
+  "library.repoOwner": "Owner",
+  "library.repoName": "Repository",
+  "library.repoBranch": "Branch",
+  "library.repoPath": "Path (subdirectory)",
+  "library.installSkill": "Install",
+  "library.installed": "Installed",
+  "library.repoHint": "e.g. owner/repo — browse skills from any GitHub repository",
 } as const;
 
 const zh: Record<keyof typeof en, string> = {
@@ -223,7 +239,7 @@ const zh: Record<keyof typeof en, string> = {
   "sidebar.newProject": "\u65b0\u5efa\u9879\u76ee",
   "sidebar.library": "\u8d44\u6e90\u5e93",
   "sidebar.settings": "\u8bbe\u7f6e",
-  "sidebar.version": "AI Factory v0.2.1",
+  "sidebar.version": "AI Factory v0.2.2",
   "sidebar.checkUpdate": "\u68c0\u67e5\u66f4\u65b0",
   "sidebar.checking": "\u68c0\u67e5\u4e2d...",
   "sidebar.updateAvailable": "\u65b0\u7248\u672c\u53ef\u7528",
@@ -427,6 +443,22 @@ const zh: Record<keyof typeof en, string> = {
   "library.source": "\u6765\u6e90",
   "library.path": "\u8def\u5f84",
   "library.removeConfirm": "\u5220\u9664\u6b64\u9879\uff1f\u6b64\u64cd\u4f5c\u4e0d\u53ef\u64a4\u9500\u3002",
+
+  // Repository Management
+  "library.repos": "\u8fdc\u7a0b\u4ed3\u5e93",
+  "library.reposDesc": "\u4ece GitHub \u4ed3\u5e93\u6d4f\u89c8\u548c\u5b89\u88c5\u6280\u80fd",
+  "library.addRepo": "\u6dfb\u52a0\u4ed3\u5e93",
+  "library.removeRepo": "\u79fb\u9664",
+  "library.browseRepo": "\u6d4f\u89c8",
+  "library.browsing": "\u52a0\u8f7d\u4e2d...",
+  "library.noRepos": "\u672a\u914d\u7f6e\u4ed3\u5e93\u3002\u6dfb\u52a0 GitHub \u4ed3\u5e93\u6765\u53d1\u73b0\u6280\u80fd\u3002",
+  "library.repoOwner": "\u6240\u6709\u8005",
+  "library.repoName": "\u4ed3\u5e93\u540d",
+  "library.repoBranch": "\u5206\u652f",
+  "library.repoPath": "\u8def\u5f84\uff08\u5b50\u76ee\u5f55\uff09",
+  "library.installSkill": "\u5b89\u88c5",
+  "library.installed": "\u5df2\u5b89\u88c5",
+  "library.repoHint": "\u4f8b\u5982 owner/repo \u2014 \u4ece\u4efb\u610f GitHub \u4ed3\u5e93\u6d4f\u89c8\u6280\u80fd",
 };
 
 type TranslationKey = keyof typeof en;

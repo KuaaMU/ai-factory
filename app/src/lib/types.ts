@@ -208,6 +208,7 @@ export interface AppSettings {
   readonly language: string;
   readonly theme?: string;
   readonly mcp_servers: readonly McpServerConfig[];
+  readonly skill_repos: readonly SkillRepo[];
 }
 
 export interface AiProvider {
@@ -315,4 +316,24 @@ export interface AddAgentRequest {
   readonly mental_models: readonly string[];
   readonly core_capabilities: readonly string[];
   readonly layer: string;
+}
+
+// ===== Skill Repository Types =====
+
+export interface SkillRepo {
+  readonly id: string;
+  readonly name: string;
+  readonly owner: string;
+  readonly repo: string;
+  readonly branch: string;
+  readonly path: string;
+  readonly enabled: boolean;
+}
+
+export interface RepoItem {
+  readonly name: string;
+  readonly path: string;
+  readonly item_type: string;
+  readonly download_url: string | null;
+  readonly description: string;
 }

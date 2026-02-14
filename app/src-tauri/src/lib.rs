@@ -11,6 +11,7 @@ use commands::system as system_cmd;
 use commands::provider_detect as provider_detect_cmd;
 use commands::mcp as mcp_cmd;
 use commands::skill_manager as skill_mgr_cmd;
+use commands::repo_manager as repo_mgr_cmd;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -74,6 +75,13 @@ pub fn run() {
             skill_mgr_cmd::remove_custom_agent,
             skill_mgr_cmd::list_custom_agents,
             skill_mgr_cmd::list_custom_skills,
+            // Repo manager commands
+            repo_mgr_cmd::list_skill_repos,
+            repo_mgr_cmd::add_skill_repo,
+            repo_mgr_cmd::remove_skill_repo,
+            repo_mgr_cmd::browse_repo,
+            repo_mgr_cmd::browse_repo_skills,
+            repo_mgr_cmd::install_repo_skill,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

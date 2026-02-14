@@ -27,6 +27,7 @@ fn default_settings() -> AppSettings {
         language: "en".to_string(),
         theme: "obsidian".to_string(),
         mcp_servers: vec![],
+        skill_repos: vec![],
     }
 }
 

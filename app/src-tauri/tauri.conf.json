@@ -1,6 +1,6 @@
 {
   "productName": "AI Factory",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "identifier": "com.aifactory.app",
   "build": {
     "beforeDevCommand": "npm run dev",

@@ -7,73 +7,72 @@
     --radius: 0.5rem;
   }
 
-  /* ===== Theme: Obsidian (黑曜石) — default ===== */
-  /* Pure zinc dark, blue accent, clean and minimal */
+  /* ===== DARK THEMES ===== */
+
+  /* Obsidian (黑曜石) — default dark, VS Code / GitHub Dark inspired */
   .dark,
   [data-theme="obsidian"] {
-    --background: 240 10% 3.9%;       /* zinc-950 */
-    --foreground: 0 0% 98%;           /* zinc-50 */
-    --card: 240 5.9% 10%;             /* zinc-900 */
-    --card-foreground: 0 0% 98%;      /* zinc-50 */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 5.9% 10%;
+    --card-foreground: 0 0% 98%;
     --popover: 240 5.9% 10%;
     --popover-foreground: 0 0% 98%;
     --primary: 217 91% 60%;           /* blue-500 */
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 3.7% 15.9%;     /* zinc-800 */
+    --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;         /* zinc-800 */
-    --muted-foreground: 240 5% 64.9%; /* zinc-400 */
-    --accent: 217 91% 60%;            /* blue-500 */
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 217 91% 60%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;        /* zinc-800 */
-    --input: 240 5.3% 26.1%;         /* zinc-700 */
-    --ring: 217 91% 60%;             /* blue-500 */
+    --border: 240 3.7% 15.9%;
+    --input: 240 5.3% 26.1%;
+    --ring: 217 91% 60%;
     color-scheme: dark;
   }
 
-  /* ===== Theme: Cyber (赛博) ===== */
-  /* Deep slate-blue tint, cyan accent, futuristic */
+  /* Cyber (赛博) — Discord / Dracula inspired, deep navy + cyan */
   [data-theme="cyber"] {
-    --background: 222 47% 6%;         /* deep navy */
-    --foreground: 210 40% 96%;        /* slate-100 */
-    --card: 217 33% 12%;              /* slate-900 */
+    --background: 231 15% 9%;
+    --foreground: 210 40% 96%;
+    --card: 232 14% 13%;
     --card-foreground: 210 40% 96%;
-    --popover: 217 33% 12%;
+    --popover: 232 14% 13%;
     --popover-foreground: 210 40% 96%;
     --primary: 192 91% 56%;           /* cyan-400 */
-    --primary-foreground: 222 47% 6%;
-    --secondary: 215 28% 17%;         /* slate-800 */
+    --primary-foreground: 231 15% 9%;
+    --secondary: 230 12% 18%;
     --secondary-foreground: 210 40% 96%;
-    --muted: 215 28% 17%;
-    --muted-foreground: 215 20% 60%;  /* slate-400 */
-    --accent: 192 91% 56%;            /* cyan-400 */
-    --accent-foreground: 222 47% 6%;
+    --muted: 230 12% 18%;
+    --muted-foreground: 215 20% 60%;
+    --accent: 192 91% 56%;
+    --accent-foreground: 231 15% 9%;
     --destructive: 0 72% 45%;
     --destructive-foreground: 210 40% 96%;
-    --border: 215 28% 20%;            /* slate-700 */
-    --input: 215 25% 25%;
+    --border: 230 12% 22%;
+    --input: 230 10% 28%;
     --ring: 192 91% 56%;
     color-scheme: dark;
   }
 
-  /* ===== Theme: Ember (琥珀) ===== */
-  /* Warm dark, amber/orange accent, elegant */
+  /* Ember (琥珀) — Monokai / warm terminal inspired */
   [data-theme="ember"] {
-    --background: 20 14% 4%;          /* warm black */
-    --foreground: 36 33% 94%;         /* warm white */
-    --card: 20 10% 10%;               /* warm dark */
+    --background: 20 14% 4%;
+    --foreground: 36 33% 94%;
+    --card: 20 10% 10%;
     --card-foreground: 36 33% 94%;
     --popover: 20 10% 10%;
     --popover-foreground: 36 33% 94%;
     --primary: 32 95% 54%;            /* amber-500 */
     --primary-foreground: 20 14% 4%;
-    --secondary: 20 8% 16%;           /* warm gray */
+    --secondary: 20 8% 16%;
     --secondary-foreground: 36 33% 94%;
     --muted: 20 8% 16%;
-    --muted-foreground: 25 5% 60%;    /* warm gray-400 */
-    --accent: 32 95% 54%;             /* amber-500 */
+    --muted-foreground: 25 5% 60%;
+    --accent: 32 95% 54%;
     --accent-foreground: 20 14% 4%;
     --destructive: 0 72% 45%;
     --destructive-foreground: 36 33% 94%;
@@ -81,6 +80,80 @@
     --input: 20 6% 24%;
     --ring: 32 95% 54%;
     color-scheme: dark;
+  }
+
+  /* ===== LIGHT THEMES ===== */
+
+  /* Daylight (日光) — GitHub Light / clean white + blue */
+  [data-theme="daylight"] {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 98%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;           /* blue-600 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 221 83% 53%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 91%;
+    --input: 220 13% 87%;
+    --ring: 221 83% 53%;
+    color-scheme: light;
+  }
+
+  /* Paper (纸墨) — Notion / Solarized Light inspired, warm cream + green */
+  [data-theme="paper"] {
+    --background: 44 27% 97%;
+    --foreground: 192 10% 22%;
+    --card: 44 25% 93%;
+    --card-foreground: 192 10% 22%;
+    --popover: 44 27% 97%;
+    --popover-foreground: 192 10% 22%;
+    --primary: 162 63% 41%;           /* teal-600 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 44 20% 90%;
+    --secondary-foreground: 192 10% 22%;
+    --muted: 44 20% 90%;
+    --muted-foreground: 192 5% 50%;
+    --accent: 162 63% 41%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 44 15% 85%;
+    --input: 44 12% 82%;
+    --ring: 162 63% 41%;
+    color-scheme: light;
+  }
+
+  /* Lavender (薰衣草) — Linear / Slack inspired, cool gray + purple */
+  [data-theme="lavender"] {
+    --background: 240 10% 98%;
+    --foreground: 240 10% 12%;
+    --card: 240 8% 94%;
+    --card-foreground: 240 10% 12%;
+    --popover: 240 10% 98%;
+    --popover-foreground: 240 10% 12%;
+    --primary: 263 70% 58%;           /* violet-500 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 7% 91%;
+    --secondary-foreground: 240 10% 12%;
+    --muted: 240 7% 91%;
+    --muted-foreground: 240 4% 50%;
+    --accent: 263 70% 58%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 6% 87%;
+    --input: 240 5% 83%;
+    --ring: 263 70% 58%;
+    color-scheme: light;
   }
 }
 

@@ -19,6 +19,8 @@ import type {
   ScannedSkill,
   AddSkillRequest,
   AddAgentRequest,
+  SkillRepo,
+  RepoItem,
 } from "./types";
 
 // ===== Bootstrap Commands =====
@@ -251,4 +253,30 @@ export async function listCustomAgents(): Promise<readonly PersonaInfo[]> {
 
 export async function listCustomSkills(): Promise<readonly SkillInfo[]> {
   return invoke("list_custom_skills");
+}
+
+// ===== Repo Manager Commands =====
+
+export async function listSkillRepos(): Promise<readonly SkillRepo[]> {
+  return invoke("list_skill_repos");
+}
+
+export async function addSkillRepo(repo: SkillRepo): Promise<AppSettings> {
+  return invoke("add_skill_repo", { repo });
+}
+
+export async function removeSkillRepo(repoId: string): Promise<AppSettings> {
+  return invoke("remove_skill_repo", { repoId });
+}
+
+export async function browseRepo(repoId: string, subpath: string): Promise<readonly RepoItem[]> {
+  return invoke("browse_repo", { repoId, subpath });
+}
+
+export async function browseRepoSkills(repoId: string): Promise<readonly RepoItem[]> {
+  return invoke("browse_repo_skills", { repoId });
+}
+
+export async function installRepoSkill(repoId: string, skillPath: string): Promise<SkillInfo> {
+  return invoke("install_repo_skill", { repoId, skillPath });
 }

@@ -73,7 +73,9 @@ const PROVIDER_PRESETS: Record<
 
 type SettingsTab = "general" | "providers" | "system";
 
-type ThemeId = "obsidian" | "cyber" | "ember";
+type ThemeId = "obsidian" | "cyber" | "ember" | "daylight" | "paper" | "lavender";
+
+const DARK_THEMES = new Set<ThemeId>(["obsidian", "cyber", "ember"]);
 
 interface ThemeOption {
   readonly id: ThemeId;
@@ -82,6 +84,7 @@ interface ThemeOption {
   readonly bgClass: string;
   readonly accentClass: string;
   readonly borderClass: string;
+  readonly isDark: boolean;
 }
 
 const THEME_OPTIONS: readonly ThemeOption[] = [
@@ -92,6 +95,7 @@ const THEME_OPTIONS: readonly ThemeOption[] = [
     bgClass: "bg-zinc-900",
     accentClass: "bg-blue-500",
     borderClass: "border-blue-500",
+    isDark: true,
   },
   {
     id: "cyber",
@@ -100,6 +104,7 @@ const THEME_OPTIONS: readonly ThemeOption[] = [
     bgClass: "bg-slate-900",
     accentClass: "bg-cyan-400",
     borderClass: "border-cyan-400",
+    isDark: true,
   },
   {
     id: "ember",
@@ -108,6 +113,34 @@ const THEME_OPTIONS: readonly ThemeOption[] = [
     bgClass: "bg-stone-900",
     accentClass: "bg-amber-500",
     borderClass: "border-amber-500",
+    isDark: true,
+  },
+  {
+    id: "daylight",
+    nameEn: "Daylight",
+    nameZh: "\u65e5\u5149",
+    bgClass: "bg-white",
+    accentClass: "bg-blue-600",
+    borderClass: "border-blue-600",
+    isDark: false,
+  },
+  {
+    id: "paper",
+    nameEn: "Paper",
+    nameZh: "\u7eb8\u58a8",
+    bgClass: "bg-amber-50",
+    accentClass: "bg-teal-600",
+    borderClass: "border-teal-600",
+    isDark: false,
+  },
+  {
+    id: "lavender",
+    nameEn: "Lavender",
+    nameZh: "\u85b0\u8863\u8349",
+    bgClass: "bg-gray-100",
+    accentClass: "bg-violet-500",
+    borderClass: "border-violet-500",
+    isDark: false,
   },
 ];
 
@@ -159,44 +192,62 @@ function ThemeSelector({
 }) {
   const { t, language } = useI18n();
 
+  const darkThemes = THEME_OPTIONS.filter((th) => th.isDark);
+  const lightThemes = THEME_OPTIONS.filter((th) => !th.isDark);
+
+  const renderThemeButton = (theme: ThemeOption) => {
+    const isSelected = currentTheme === theme.id;
+    return (
+      <button
+        key={theme.id}
+        onClick={() => onThemeChange(theme.id)}
+        className={`group relative flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
+          isSelected
+            ? `${theme.borderClass} bg-card shadow-md`
+            : "border-border bg-card hover:border-input"
+        }`}
+      >
+        {/* Theme preview */}
+        <div className={`flex h-12 w-full items-center justify-center rounded-md ${theme.bgClass}`}>
+          <div className={`h-3 w-3 rounded-full ${theme.accentClass}`} />
+        </div>
+        {/* Theme name */}
+        <span className="text-sm font-medium text-foreground">
+          {language === "zh"
+            ? `${theme.nameEn} (${theme.nameZh})`
+            : theme.nameEn}
+        </span>
+        {/* Selection indicator */}
+        {isSelected && (
+          <div className="absolute -right-1.5 -top-1.5 rounded-full bg-primary p-0.5">
+            <Check className="h-3 w-3 text-primary-foreground" />
+          </div>
+        )}
+      </button>
+    );
+  };
+
   return (
     <div className="space-y-4 rounded-lg border border-border bg-card p-6">
       <div className="flex items-center gap-2">
         <Palette className="h-5 w-5 text-muted-foreground" />
         <h2 className="font-semibold">{t("settings.themeLabel")}</h2>
       </div>
-      <div className="grid gap-3 sm:grid-cols-3">
-        {THEME_OPTIONS.map((theme) => {
-          const isSelected = currentTheme === theme.id;
-          return (
-            <button
-              key={theme.id}
-              onClick={() => onThemeChange(theme.id)}
-              className={`group relative flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
-                isSelected
-                  ? `${theme.borderClass} bg-card shadow-md`
-                  : "border-border bg-card hover:border-input"
-              }`}
-            >
-              {/* Theme preview */}
-              <div className={`flex h-12 w-full items-center justify-center rounded-md ${theme.bgClass}`}>
-                <div className={`h-3 w-3 rounded-full ${theme.accentClass}`} />
-              </div>
-              {/* Theme name */}
-              <span className="text-sm font-medium text-foreground">
-                {language === "zh"
-                  ? `${theme.nameEn} (${theme.nameZh})`
-                  : theme.nameEn}
-              </span>
-              {/* Selection indicator */}
-              {isSelected && (
-                <div className="absolute -right-1.5 -top-1.5 rounded-full bg-primary p-0.5">
-                  <Check className="h-3 w-3 text-primary-foreground" />
-                </div>
-              )}
-            </button>
-          );
-        })}
+      <div className="space-y-3">
+        <p className="text-xs font-medium uppercase text-muted-foreground">
+          {language === "zh" ? "\u6df1\u8272\u4e3b\u9898" : "Dark"}
+        </p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {darkThemes.map(renderThemeButton)}
+        </div>
+      </div>
+      <div className="space-y-3">
+        <p className="text-xs font-medium uppercase text-muted-foreground">
+          {language === "zh" ? "\u6d45\u8272\u4e3b\u9898" : "Light"}
+        </p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {lightThemes.map(renderThemeButton)}
+        </div>
       </div>
     </div>
   );
@@ -232,7 +283,7 @@ function GeneralTab({
       setCycleTimeout(String(settings.cycle_timeout));
       setProjectsDir(settings.projects_dir);
       const theme = settings.theme as ThemeId | undefined;
-      if (theme === "obsidian" || theme === "cyber" || theme === "ember") {
+      if (theme && THEME_OPTIONS.some((t) => t.id === theme)) {
         setCurrentTheme(theme);
       }
     }
@@ -240,7 +291,13 @@ function GeneralTab({
 
   // Apply theme to document
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", currentTheme);
+    const el = document.documentElement;
+    el.setAttribute("data-theme", currentTheme);
+    if (DARK_THEMES.has(currentTheme)) {
+      el.classList.add("dark");
+    } else {
+      el.classList.remove("dark");
+    }
   }, [currentTheme]);
 
   const saveMutation = useMutation({
@@ -254,7 +311,13 @@ function GeneralTab({
 
   const handleThemeChange = (theme: ThemeId) => {
     setCurrentTheme(theme);
-    document.documentElement.setAttribute("data-theme", theme);
+    const el = document.documentElement;
+    el.setAttribute("data-theme", theme);
+    if (DARK_THEMES.has(theme)) {
+      el.classList.add("dark");
+    } else {
+      el.classList.remove("dark");
+    }
     // Persist theme to settings
     if (settings) {
       const updated: AppSettings = {
@@ -280,6 +343,7 @@ function GeneralTab({
       language,
       theme: currentTheme,
       mcp_servers: settings?.mcp_servers ?? [],
+      skill_repos: settings?.skill_repos ?? [],
     };
     saveMutation.mutate(updated);
   };
@@ -1259,8 +1323,14 @@ export function Settings() {
 
   // Initialize theme from settings on load
   useEffect(() => {
-    const theme = settings?.theme ?? "obsidian";
-    document.documentElement.setAttribute("data-theme", theme);
+    const theme = (settings?.theme ?? "obsidian") as ThemeId;
+    const el = document.documentElement;
+    el.setAttribute("data-theme", theme);
+    if (DARK_THEMES.has(theme)) {
+      el.classList.add("dark");
+    } else {
+      el.classList.remove("dark");
+    }
   }, [settings]);
 
   if (isLoading) {
