@@ -139,6 +139,9 @@ You need at least one AI coding CLI installed:
 
 ```
 ai-factory/
+├── .github/                       # CI/CD & community
+│   ├── workflows/build.yml        # Cross-platform build (Windows/macOS/Linux)
+│   └── FUNDING.yml                # GitHub Sponsors
 ├── app/                           # Tauri desktop application
 │   ├── src/                       # React frontend
 │   │   ├── routes/                # Pages: Dashboard, NewProject, Library, Settings
@@ -161,11 +164,15 @@ ai-factory/
 │   │   │   └── models/            # Shared data structures
 │   │   └── Cargo.toml
 │   └── package.json
-├── library/                       # Built-in personas, skills, workflows
+├── library/                       # Built-in resource library
 │   ├── personas/                  # 14 expert persona YAMLs
-│   ├── skills/                    # Skill definitions
+│   ├── skills/                    # Skill definitions (YAML)
+│   ├── real-skills/               # Community skills (SKILL.md format)
+│   ├── ecc-skills/                # ECC skills collection
+│   ├── real-agents/               # Agent prompt templates (Markdown)
 │   └── workflows/                 # Workflow chain YAMLs
-├── templates/                     # Jinja2 templates for code generation
+├── CONTRIBUTING.md                # Contribution guide
+├── LICENSE                        # MIT
 └── README.md
 ```
 
