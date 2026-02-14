@@ -287,3 +287,31 @@ export interface McpPreset {
   readonly env_keys: readonly string[];
   readonly category: string;
 }
+
+// ===== Skill Manager Types =====
+
+export interface ScannedSkill {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly source: string;
+  readonly directory: string;
+  readonly full_path: string;
+  readonly has_skill_md: boolean;
+}
+
+export interface AddSkillRequest {
+  readonly name: string;
+  readonly description: string;
+  readonly content: string;
+  readonly category: string;
+}
+
+export interface AddAgentRequest {
+  readonly name: string;
+  readonly role: string;
+  readonly expertise: string;
+  readonly mental_models: readonly string[];
+  readonly core_capabilities: readonly string[];
+  readonly layer: string;
+}

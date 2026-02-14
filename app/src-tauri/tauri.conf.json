@@ -1,6 +1,6 @@
 {
   "productName": "AI Factory",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "identifier": "com.aifactory.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -44,7 +44,7 @@
       "endpoints": [
         "https://github.com/KuaaMU/ai-factory/releases/latest/download/latest.json"
       ],
-      "pubkey": ""
+      "pubkey": "RWRvL3ujQpZwr9t7KmTZIzk8fAwrQW0T7SsC7yBQeaO2mH36lvaQdp3B"
     }
   }
 }

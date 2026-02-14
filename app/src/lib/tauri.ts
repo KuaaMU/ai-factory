@@ -16,6 +16,9 @@ import type {
   DetectedProvider,
   McpServerConfig,
   McpPreset,
+  ScannedSkill,
+  AddSkillRequest,
+  AddAgentRequest,
 } from "./types";
 
 // ===== Bootstrap Commands =====
@@ -218,4 +221,34 @@ export async function removeMcpServer(serverId: string): Promise<AppSettings> {
 
 export async function getMcpPresets(): Promise<readonly McpPreset[]> {
   return invoke("get_mcp_presets");
+}
+
+// ===== Skill Manager Commands =====
+
+export async function scanLocalSkills(): Promise<readonly ScannedSkill[]> {
+  return invoke("scan_local_skills");
+}
+
+export async function addCustomSkill(skill: AddSkillRequest): Promise<SkillInfo> {
+  return invoke("add_custom_skill", { skill });
+}
+
+export async function removeCustomSkill(skillId: string): Promise<boolean> {
+  return invoke("remove_custom_skill", { skillId });
+}
+
+export async function addCustomAgent(agent: AddAgentRequest): Promise<PersonaInfo> {
+  return invoke("add_custom_agent", { agent });
+}
+
+export async function removeCustomAgent(agentId: string): Promise<boolean> {
+  return invoke("remove_custom_agent", { agentId });
+}
+
+export async function listCustomAgents(): Promise<readonly PersonaInfo[]> {
+  return invoke("list_custom_agents");
+}
+
+export async function listCustomSkills(): Promise<readonly SkillInfo[]> {
+  return invoke("list_custom_skills");
 }

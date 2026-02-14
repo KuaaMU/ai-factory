@@ -10,6 +10,7 @@ use commands::settings as settings_cmd;
 use commands::system as system_cmd;
 use commands::provider_detect as provider_detect_cmd;
 use commands::mcp as mcp_cmd;
+use commands::skill_manager as skill_mgr_cmd;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -65,6 +66,14 @@ pub fn run() {
             mcp_cmd::update_mcp_server,
             mcp_cmd::remove_mcp_server,
             mcp_cmd::get_mcp_presets,
+            // Skill manager commands
+            skill_mgr_cmd::scan_local_skills,
+            skill_mgr_cmd::add_custom_skill,
+            skill_mgr_cmd::remove_custom_skill,
+            skill_mgr_cmd::add_custom_agent,
+            skill_mgr_cmd::remove_custom_agent,
+            skill_mgr_cmd::list_custom_agents,
+            skill_mgr_cmd::list_custom_skills,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

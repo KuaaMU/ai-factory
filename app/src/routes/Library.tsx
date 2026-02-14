@@ -1,12 +1,48 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Search, Users, Wrench, GitBranch, FileText, CheckCircle, Circle } from "lucide-react";
-import { listPersonas, listSkills, listWorkflows } from "@/lib/tauri";
+import { useState, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Search,
+  Users,
+  Wrench,
+  GitBranch,
+  FileText,
+  CheckCircle,
+  Circle,
+  Plus,
+  Trash2,
+  Download,
+  FolderSearch,
+} from "lucide-react";
+import {
+  listPersonas,
+  listSkills,
+  listWorkflows,
+  listCustomAgents,
+  listCustomSkills,
+  addCustomAgent,
+  addCustomSkill,
+  removeCustomAgent,
+  removeCustomSkill,
+  scanLocalSkills,
+} from "@/lib/tauri";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import type { PersonaInfo, SkillInfo } from "@/lib/types";
+import type {
+  PersonaInfo,
+  SkillInfo,
+  ScannedSkill,
+  AddSkillRequest,
+  AddAgentRequest,
+  AgentLayer,
+} from "@/lib/types";
 
 type Tab = "agents" | "skills" | "workflows";
+
+type ModalMode =
+  | { readonly kind: "none" }
+  | { readonly kind: "addAgent" }
+  | { readonly kind: "addSkill" }
+  | { readonly kind: "scanResults"; readonly results: readonly ScannedSkill[] };
 
 const LAYER_COLORS: Record<string, string> = {
   strategy: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
@@ -38,7 +74,49 @@ const SOURCE_COLORS: Record<string, string> = {
   custom: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
 };
 
-// ===== Detail Panel =====
+const AGENT_LAYERS: readonly AgentLayer[] = [
+  "strategy",
+  "engineering",
+  "product",
+  "business",
+  "intelligence",
+];
+
+// ===== Helpers =====
+
+function mergePersonas(
+  base: readonly PersonaInfo[] | undefined,
+  custom: readonly PersonaInfo[] | undefined,
+): readonly PersonaInfo[] {
+  const baseList = base ?? [];
+  const customList = custom ?? [];
+  const baseIds = new Set(baseList.map((p) => p.id));
+  const merged = [...baseList];
+  for (const c of customList) {
+    if (!baseIds.has(c.id)) {
+      merged.push(c);
+    }
+  }
+  return merged;
+}
+
+function mergeSkills(
+  base: readonly SkillInfo[] | undefined,
+  custom: readonly SkillInfo[] | undefined,
+): readonly SkillInfo[] {
+  const baseList = base ?? [];
+  const customList = custom ?? [];
+  const baseIds = new Set(baseList.map((s) => s.id));
+  const merged = [...baseList];
+  for (const c of customList) {
+    if (!baseIds.has(c.id)) {
+      merged.push(c);
+    }
+  }
+  return merged;
+}
+
+// ===== Detail Panel: Persona =====
 
 function PersonaDetail({ persona, onClose }: {
   readonly persona: PersonaInfo;
@@ -115,6 +193,8 @@ function PersonaDetail({ persona, onClose }: {
   );
 }
 
+// ===== Detail Panel: Skill =====
+
 function SkillDetail({ skill, onClose }: {
   readonly skill: SkillInfo;
   readonly onClose: () => void;
@@ -150,6 +230,354 @@ function SkillDetail({ skill, onClose }: {
         <button
           onClick={onClose}
           className="mt-4 w-full rounded-md border py-2 text-sm hover:bg-accent"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ===== Add Agent Modal =====
+
+function AddAgentModal({ onClose }: { readonly onClose: () => void }) {
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
+
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("");
+  const [expertise, setExpertise] = useState("");
+  const [layer, setLayer] = useState<AgentLayer>("engineering");
+  const [mentalModels, setMentalModels] = useState("");
+  const [coreCapabilities, setCoreCapabilities] = useState("");
+
+  const mutation = useMutation({
+    mutationFn: (req: AddAgentRequest) => addCustomAgent(req),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["personas"] });
+      queryClient.invalidateQueries({ queryKey: ["customAgents"] });
+      onClose();
+    },
+  });
+
+  const handleSubmit = useCallback(() => {
+    const trimmedName = name.trim();
+    const trimmedRole = role.trim();
+    if (trimmedName === "" || trimmedRole === "") return;
+
+    const request: AddAgentRequest = {
+      name: trimmedName,
+      role: trimmedRole,
+      expertise: expertise.trim(),
+      layer,
+      mental_models: mentalModels
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s !== ""),
+      core_capabilities: coreCapabilities
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s !== ""),
+    };
+    mutation.mutate(request);
+  }, [name, role, expertise, layer, mentalModels, coreCapabilities, mutation]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div
+        className="mx-4 max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border bg-card p-6 shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-lg font-semibold">{t("library.addAgent")}</h2>
+
+        <div className="mt-4 space-y-3">
+          <div>
+            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.name")}</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.role")}</label>
+            <input
+              type="text"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.expertise")}</label>
+            <input
+              type="text"
+              value={expertise}
+              onChange={(e) => setExpertise(e.target.value)}
+              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.layer")}</label>
+            <select
+              value={layer}
+              onChange={(e) => setLayer(e.target.value as AgentLayer)}
+              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              {AGENT_LAYERS.map((l) => (
+                <option key={l} value={l}>{l}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.mentalModels")}</label>
+            <input
+              type="text"
+              value={mentalModels}
+              onChange={(e) => setMentalModels(e.target.value)}
+              placeholder="model1, model2, model3"
+              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.coreCapabilities")}</label>
+            <input
+              type="text"
+              value={coreCapabilities}
+              onChange={(e) => setCoreCapabilities(e.target.value)}
+              placeholder="capability1, capability2"
+              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        {mutation.isError && (
+          <p className="mt-3 text-sm text-red-500">{String(mutation.error)}</p>
+        )}
+
+        <div className="mt-5 flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-md border border-zinc-700 bg-zinc-800 py-2 text-sm hover:bg-zinc-700"
+          >
+            {t("library.cancel")}
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={mutation.isPending || name.trim() === "" || role.trim() === ""}
+            className="flex-1 rounded-md bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {mutation.isPending ? t("common.loading") : t("library.create")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== Add Skill Modal =====
+
+function AddSkillModal({ onClose }: { readonly onClose: () => void }) {
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
+
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("");
+  const [content, setContent] = useState("");
+
+  const mutation = useMutation({
+    mutationFn: (req: AddSkillRequest) => addCustomSkill(req),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["skills"] });
+      queryClient.invalidateQueries({ queryKey: ["customSkills"] });
+      onClose();
+    },
+  });
+
+  const handleSubmit = useCallback(() => {
+    const trimmedName = name.trim();
+    if (trimmedName === "") return;
+
+    const request: AddSkillRequest = {
+      name: trimmedName,
+      description: description.trim(),
+      category: category.trim() || "custom",
+      content: content.trim(),
+    };
+    mutation.mutate(request);
+  }, [name, description, category, content, mutation]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div
+        className="mx-4 max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border bg-card p-6 shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-lg font-semibold">{t("library.addSkill")}</h2>
+
+        <div className="mt-4 space-y-3">
+          <div>
+            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.name")}</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.description")}</label>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.category")}</label>
+            <input
+              type="text"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="custom"
+              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.content")}</label>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              rows={6}
+              className="mt-1 w-full rounded-md border bg-zinc-900 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        {mutation.isError && (
+          <p className="mt-3 text-sm text-red-500">{String(mutation.error)}</p>
+        )}
+
+        <div className="mt-5 flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-md border border-zinc-700 bg-zinc-800 py-2 text-sm hover:bg-zinc-700"
+          >
+            {t("library.cancel")}
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={mutation.isPending || name.trim() === ""}
+            className="flex-1 rounded-md bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {mutation.isPending ? t("common.loading") : t("library.create")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== Scan Results Modal =====
+
+function ScanResultsModal({
+  results,
+  onClose,
+}: {
+  readonly results: readonly ScannedSkill[];
+  readonly onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
+  const [importedIds, setImportedIds] = useState<ReadonlySet<string>>(new Set());
+
+  const importMutation = useMutation({
+    mutationFn: (scanned: ScannedSkill) => {
+      const request: AddSkillRequest = {
+        name: scanned.name,
+        description: scanned.description,
+        category: scanned.source,
+        content: "",
+      };
+      return addCustomSkill(request);
+    },
+    onSuccess: (_data, scanned) => {
+      queryClient.invalidateQueries({ queryKey: ["skills"] });
+      queryClient.invalidateQueries({ queryKey: ["customSkills"] });
+      setImportedIds((prev) => new Set([...prev, scanned.id]));
+    },
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div
+        className="mx-4 max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-lg border bg-card p-6 shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-lg font-semibold">{t("library.scanResults")}</h2>
+
+        {results.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">{t("library.noScanResults")}</p>
+        ) : (
+          <div className="mt-4 space-y-2">
+            {results.map((skill) => {
+              const isImported = importedIds.has(skill.id);
+              return (
+                <div
+                  key={skill.id}
+                  className="flex items-center justify-between rounded-md border border-zinc-700 bg-zinc-800 p-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-sm">{skill.name}</p>
+                      <span className="rounded-full bg-secondary px-2 py-0.5 text-xs">
+                        {skill.source}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{skill.full_path}</p>
+                  </div>
+                  <button
+                    onClick={() => importMutation.mutate(skill)}
+                    disabled={isImported || importMutation.isPending}
+                    className={cn(
+                      "ml-3 flex shrink-0 items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                      isImported
+                        ? "bg-green-900 text-green-200"
+                        : "bg-primary text-primary-foreground hover:bg-primary/90",
+                    )}
+                  >
+                    {isImported ? (
+                      <>
+                        <CheckCircle className="h-3 w-3" />
+                        {t("library.imported")}
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-3 w-3" />
+                        {t("library.import")}
+                      </>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <button
+          onClick={onClose}
+          className="mt-5 w-full rounded-md border border-zinc-700 bg-zinc-800 py-2 text-sm hover:bg-zinc-700"
         >
           Close
         </button>
@@ -196,6 +624,56 @@ function CategoryFilter({
   );
 }
 
+// ===== Delete Button =====
+
+function DeleteButton({
+  itemId,
+  itemType,
+}: {
+  readonly itemId: string;
+  readonly itemType: "agent" | "skill";
+}) {
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: () =>
+      itemType === "agent"
+        ? removeCustomAgent(itemId)
+        : removeCustomSkill(itemId),
+    onSuccess: () => {
+      if (itemType === "agent") {
+        queryClient.invalidateQueries({ queryKey: ["personas"] });
+        queryClient.invalidateQueries({ queryKey: ["customAgents"] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["skills"] });
+        queryClient.invalidateQueries({ queryKey: ["customSkills"] });
+      }
+    },
+  });
+
+  const handleDelete = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (window.confirm(t("library.removeConfirm"))) {
+        deleteMutation.mutate();
+      }
+    },
+    [deleteMutation, t],
+  );
+
+  return (
+    <button
+      onClick={handleDelete}
+      disabled={deleteMutation.isPending}
+      className="rounded-md p-1.5 text-muted-foreground/60 transition-colors hover:bg-red-900/40 hover:text-red-400"
+      title={t("common.delete")}
+    >
+      <Trash2 className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
 // ===== Main Library =====
 
 export function Library() {
@@ -205,6 +683,9 @@ export function Library() {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedPersona, setSelectedPersona] = useState<PersonaInfo | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<SkillInfo | null>(null);
+  const [modal, setModal] = useState<ModalMode>({ kind: "none" });
+
+  // ---- Base queries ----
 
   const { data: personas } = useQuery({
     queryKey: ["personas"],
@@ -221,14 +702,42 @@ export function Library() {
     queryFn: listWorkflows,
   });
 
-  const filteredPersonas = personas?.filter(
+  // ---- Custom item queries ----
+
+  const { data: customAgents } = useQuery({
+    queryKey: ["customAgents"],
+    queryFn: listCustomAgents,
+  });
+
+  const { data: customSkills } = useQuery({
+    queryKey: ["customSkills"],
+    queryFn: listCustomSkills,
+  });
+
+  // ---- Merged lists ----
+
+  const allPersonas = mergePersonas(personas, customAgents);
+  const allSkills = mergeSkills(skills, customSkills);
+
+  // ---- Scan mutation ----
+
+  const scanMutation = useMutation({
+    mutationFn: scanLocalSkills,
+    onSuccess: (results) => {
+      setModal({ kind: "scanResults", results });
+    },
+  });
+
+  // ---- Filtering ----
+
+  const filteredPersonas = allPersonas.filter(
     (p) =>
       (p.name.toLowerCase().includes(search.toLowerCase()) ||
         p.role.toLowerCase().includes(search.toLowerCase())) &&
       (selectedCategory === "" || ROLE_TO_LAYER[p.role] === selectedCategory),
   );
 
-  const filteredSkills = skills?.filter(
+  const filteredSkills = allSkills.filter(
     (s) =>
       (s.name.toLowerCase().includes(search.toLowerCase()) ||
         s.category.toLowerCase().includes(search.toLowerCase()) ||
@@ -237,8 +746,8 @@ export function Library() {
   );
 
   // Extract unique categories for the filter
-  const layerCategories = [...new Set(personas?.map((p) => ROLE_TO_LAYER[p.role]).filter(Boolean) ?? [])];
-  const skillCategories = [...new Set(skills?.map((s) => s.source) ?? [])];
+  const layerCategories = [...new Set(allPersonas.map((p) => ROLE_TO_LAYER[p.role]).filter(Boolean))];
+  const skillCategories = [...new Set(allSkills.map((s) => s.source))];
 
   const searchPlaceholder =
     tab === "agents"
@@ -260,8 +769,8 @@ export function Library() {
       <div className="flex items-center gap-4 border-b">
         {(
           [
-            { id: "agents" as Tab, icon: Users, label: t("library.agents"), count: personas?.length },
-            { id: "skills" as Tab, icon: Wrench, label: t("library.skills"), count: skills?.length },
+            { id: "agents" as Tab, icon: Users, label: t("library.agents"), count: allPersonas.length },
+            { id: "skills" as Tab, icon: Wrench, label: t("library.skills"), count: allSkills.length },
             { id: "workflows" as Tab, icon: GitBranch, label: t("library.workflows"), count: workflows?.length },
           ] as const
         ).map(({ id, icon: Icon, label, count }) => (
@@ -286,18 +795,51 @@ export function Library() {
         ))}
       </div>
 
-      {/* Search + Category Filter */}
+      {/* Search + Action Buttons + Category Filter */}
       <div className="space-y-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={searchPlaceholder}
-            className="w-full rounded-md border bg-background py-2 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="w-full rounded-md border bg-background py-2 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          {tab === "agents" && (
+            <button
+              onClick={() => setModal({ kind: "addAgent" })}
+              className="flex shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" />
+              {t("library.addAgent")}
+            </button>
+          )}
+
+          {tab === "skills" && (
+            <>
+              <button
+                onClick={() => setModal({ kind: "addSkill" })}
+                className="flex shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                <Plus className="h-4 w-4" />
+                {t("library.addSkill")}
+              </button>
+              <button
+                onClick={() => scanMutation.mutate()}
+                disabled={scanMutation.isPending}
+                className="flex shrink-0 items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm font-medium hover:bg-zinc-700 disabled:opacity-50"
+              >
+                <FolderSearch className="h-4 w-4" />
+                {scanMutation.isPending ? t("library.scanning") : t("library.scanSkills")}
+              </button>
+            </>
+          )}
         </div>
+
         {tab === "agents" && layerCategories.length > 0 && (
           <CategoryFilter categories={layerCategories} selected={selectedCategory} onSelect={setSelectedCategory} />
         )}
@@ -309,7 +851,7 @@ export function Library() {
       {/* Content */}
       {tab === "agents" && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredPersonas?.map((p) => (
+          {filteredPersonas.map((p) => (
             <div
               key={p.id}
               className="cursor-pointer rounded-lg border bg-card p-4 transition-shadow hover:shadow-md"
@@ -342,9 +884,14 @@ export function Library() {
                     </span>
                   </div>
                 </div>
-                {p.file_path && (
-                  <FileText className="h-3.5 w-3.5 text-muted-foreground/40" />
-                )}
+                <div className="flex items-center gap-1">
+                  {p.file_path && (
+                    <FileText className="h-3.5 w-3.5 text-muted-foreground/40" />
+                  )}
+                  {p.id.startsWith("custom:") && (
+                    <DeleteButton itemId={p.id} itemType="agent" />
+                  )}
+                </div>
               </div>
               <p className="mt-3 text-sm text-muted-foreground line-clamp-3">
                 {p.expertise}
@@ -368,7 +915,7 @@ export function Library() {
 
       {tab === "skills" && (
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {filteredSkills?.map((s) => (
+          {filteredSkills.map((s) => (
             <div
               key={s.id}
               className="cursor-pointer rounded-lg border bg-card p-4 transition-shadow hover:shadow-md"
@@ -381,14 +928,19 @@ export function Library() {
                     <FileText className="h-3 w-3 text-muted-foreground/40" />
                   )}
                 </div>
-                <span
-                  className={cn(
-                    "rounded-full px-2 py-0.5 text-xs",
-                    SOURCE_COLORS[s.source] ?? SOURCE_COLORS.custom,
+                <div className="flex items-center gap-1">
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-xs",
+                      SOURCE_COLORS[s.source] ?? SOURCE_COLORS.custom,
+                    )}
+                  >
+                    {s.source}
+                  </span>
+                  {s.id.startsWith("custom:") && (
+                    <DeleteButton itemId={s.id} itemType="skill" />
                   )}
-                >
-                  {s.source}
-                </span>
+                </div>
               </div>
               <span className="mt-1 inline-block rounded-full bg-secondary px-2 py-0.5 text-xs">{s.category}</span>
               <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
@@ -443,6 +995,20 @@ export function Library() {
       )}
       {selectedSkill && (
         <SkillDetail skill={selectedSkill} onClose={() => setSelectedSkill(null)} />
+      )}
+
+      {/* Modal Overlays */}
+      {modal.kind === "addAgent" && (
+        <AddAgentModal onClose={() => setModal({ kind: "none" })} />
+      )}
+      {modal.kind === "addSkill" && (
+        <AddSkillModal onClose={() => setModal({ kind: "none" })} />
+      )}
+      {modal.kind === "scanResults" && (
+        <ScanResultsModal
+          results={modal.results}
+          onClose={() => setModal({ kind: "none" })}
+        />
       )}
     </div>
   );

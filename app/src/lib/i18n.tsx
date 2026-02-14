@@ -11,7 +11,7 @@ const en = {
   "sidebar.newProject": "New Project",
   "sidebar.library": "Library",
   "sidebar.settings": "Settings",
-  "sidebar.version": "AI Factory v0.2.0",
+  "sidebar.version": "AI Factory v0.2.1",
   "sidebar.checkUpdate": "Check for Updates",
   "sidebar.checking": "Checking...",
   "sidebar.updateAvailable": "Update Available",
@@ -182,6 +182,37 @@ const en = {
   "settings.mcpConfigured": "Configured Servers",
   "settings.mcpNoServers": "No MCP servers configured. Add one from the presets above.",
   "settings.mcpAdded": "Added",
+
+  // Settings Tabs
+  "settings.tabGeneral": "General",
+  "settings.tabProviders": "AI Providers",
+  "settings.tabMcp": "MCP Servers",
+  "settings.tabSystem": "System",
+
+  // Library Management
+  "library.addAgent": "Add Agent",
+  "library.addSkill": "Add Skill",
+  "library.scanSkills": "Scan Local Skills",
+  "library.scanning": "Scanning...",
+  "library.scanResults": "Found Skills",
+  "library.noScanResults": "No skills found on your system.",
+  "library.import": "Import",
+  "library.imported": "Imported",
+  "library.custom": "Custom",
+  "library.name": "Name",
+  "library.role": "Role",
+  "library.expertise": "Expertise",
+  "library.layer": "Layer",
+  "library.mentalModels": "Mental Models",
+  "library.coreCapabilities": "Core Capabilities",
+  "library.description": "Description",
+  "library.category": "Category",
+  "library.content": "Content",
+  "library.create": "Create",
+  "library.cancel": "Cancel",
+  "library.source": "Source",
+  "library.path": "Path",
+  "library.removeConfirm": "Remove this item? This cannot be undone.",
 } as const;
 
 const zh: Record<keyof typeof en, string> = {
@@ -190,7 +221,7 @@ const zh: Record<keyof typeof en, string> = {
   "sidebar.newProject": "\u65b0\u5efa\u9879\u76ee",
   "sidebar.library": "\u8d44\u6e90\u5e93",
   "sidebar.settings": "\u8bbe\u7f6e",
-  "sidebar.version": "AI Factory v0.2.0",
+  "sidebar.version": "AI Factory v0.2.1",
   "sidebar.checkUpdate": "\u68c0\u67e5\u66f4\u65b0",
   "sidebar.checking": "\u68c0\u67e5\u4e2d...",
   "sidebar.updateAvailable": "\u65b0\u7248\u672c\u53ef\u7528",
@@ -361,6 +392,37 @@ const zh: Record<keyof typeof en, string> = {
   "settings.mcpConfigured": "\u5df2\u914d\u7f6e\u670d\u52a1\u5668",
   "settings.mcpNoServers": "\u672a\u914d\u7f6e MCP \u670d\u52a1\u5668\u3002\u4ece\u4e0a\u65b9\u9884\u8bbe\u4e2d\u6dfb\u52a0\u3002",
   "settings.mcpAdded": "\u5df2\u6dfb\u52a0",
+
+  // Settings Tabs
+  "settings.tabGeneral": "\u5e38\u89c4",
+  "settings.tabProviders": "AI \u4f9b\u5e94\u5546",
+  "settings.tabMcp": "MCP \u670d\u52a1\u5668",
+  "settings.tabSystem": "\u7cfb\u7edf\u73af\u5883",
+
+  // Library Management
+  "library.addAgent": "\u6dfb\u52a0\u667a\u80fd\u4f53",
+  "library.addSkill": "\u6dfb\u52a0\u6280\u80fd",
+  "library.scanSkills": "\u626b\u63cf\u672c\u5730\u6280\u80fd",
+  "library.scanning": "\u626b\u63cf\u4e2d...",
+  "library.scanResults": "\u53d1\u73b0\u7684\u6280\u80fd",
+  "library.noScanResults": "\u672a\u5728\u7cfb\u7edf\u4e2d\u53d1\u73b0\u6280\u80fd\u3002",
+  "library.import": "\u5bfc\u5165",
+  "library.imported": "\u5df2\u5bfc\u5165",
+  "library.custom": "\u81ea\u5b9a\u4e49",
+  "library.name": "\u540d\u79f0",
+  "library.role": "\u89d2\u8272",
+  "library.expertise": "\u4e13\u957f",
+  "library.layer": "\u5c42\u7ea7",
+  "library.mentalModels": "\u601d\u7ef4\u6a21\u578b",
+  "library.coreCapabilities": "\u6838\u5fc3\u80fd\u529b",
+  "library.description": "\u63cf\u8ff0",
+  "library.category": "\u5206\u7c7b",
+  "library.content": "\u5185\u5bb9",
+  "library.create": "\u521b\u5efa",
+  "library.cancel": "\u53d6\u6d88",
+  "library.source": "\u6765\u6e90",
+  "library.path": "\u8def\u5f84",
+  "library.removeConfirm": "\u5220\u9664\u6b64\u9879\uff1f\u6b64\u64cd\u4f5c\u4e0d\u53ef\u64a4\u9500\u3002",
 };
 
 type TranslationKey = keyof typeof en;

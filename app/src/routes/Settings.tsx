@@ -22,24 +22,35 @@ import {
   Sparkles,
   Server,
   Power,
+  Settings2,
+  Cpu,
 } from "lucide-react";
 import {
   loadSettings,
   saveSettings as saveSettingsApi,
   addProvider,
   removeProvider,
-  detectSystem,
-  installTool,
   detectProviders,
   exportProviders,
   importProviders,
+  detectSystem,
+  installTool,
   listMcpServers,
   addMcpServer,
   removeMcpServer,
   getMcpPresets,
 } from "@/lib/tauri";
 import { useI18n } from "@/lib/i18n";
-import type { AppSettings, AiProvider, ToolInfo, DetectedProvider, McpServerConfig, McpPreset } from "@/lib/types";
+import type {
+  AppSettings,
+  AiProvider,
+  ToolInfo,
+  DetectedProvider,
+  McpServerConfig,
+  McpPreset,
+} from "@/lib/types";
+
+// ===== Constants =====
 
 const PROVIDER_PRESETS: Record<
   string,
@@ -67,7 +78,749 @@ const PROVIDER_PRESETS: Record<
   },
 };
 
-// ===== MCP Servers Panel =====
+type SettingsTab = "general" | "providers" | "mcp" | "system";
+
+// ===== Tab Bar =====
+
+function TabBar({
+  activeTab,
+  onTabChange,
+}: {
+  readonly activeTab: SettingsTab;
+  readonly onTabChange: (tab: SettingsTab) => void;
+}) {
+  const { t } = useI18n();
+
+  const tabs: readonly { readonly id: SettingsTab; readonly label: string; readonly icon: React.ReactNode }[] = [
+    { id: "general", label: t("settings.tabGeneral"), icon: <Settings2 className="h-4 w-4" /> },
+    { id: "providers", label: t("settings.tabProviders"), icon: <Cpu className="h-4 w-4" /> },
+    { id: "mcp", label: t("settings.tabMcp"), icon: <Server className="h-4 w-4" /> },
+    { id: "system", label: t("settings.tabSystem"), icon: <Monitor className="h-4 w-4" /> },
+  ];
+
+  return (
+    <div className="flex gap-1 rounded-lg bg-zinc-900 p-1">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          onClick={() => onTabChange(tab.id)}
+          className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === tab.id
+              ? "bg-zinc-700 text-white shadow-sm"
+              : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+          }`}
+        >
+          {tab.icon}
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ===== Tab 1: General =====
+
+function GeneralTab({
+  settings,
+}: {
+  readonly settings: AppSettings | undefined;
+}) {
+  const { t, language, setLanguage } = useI18n();
+  const queryClient = useQueryClient();
+
+  const [engine, setEngine] = useState("claude");
+  const [defaultModel, setDefaultModel] = useState("sonnet");
+  const [maxDailyBudget, setMaxDailyBudget] = useState("50");
+  const [alertAtBudget, setAlertAtBudget] = useState("30");
+  const [loopInterval, setLoopInterval] = useState("30");
+  const [cycleTimeout, setCycleTimeout] = useState("1800");
+  const [projectsDir, setProjectsDir] = useState("");
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    if (settings) {
+      setEngine(settings.default_engine);
+      setDefaultModel(settings.default_model);
+      setMaxDailyBudget(String(settings.max_daily_budget));
+      setAlertAtBudget(String(settings.alert_at_budget));
+      setLoopInterval(String(settings.loop_interval));
+      setCycleTimeout(String(settings.cycle_timeout));
+      setProjectsDir(settings.projects_dir);
+    }
+  }, [settings]);
+
+  const saveMutation = useMutation({
+    mutationFn: (s: AppSettings) => saveSettingsApi(s),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2000);
+    },
+  });
+
+  const handleSave = () => {
+    const updated: AppSettings = {
+      default_engine: engine,
+      default_model: defaultModel,
+      max_daily_budget: parseFloat(maxDailyBudget) || 50,
+      alert_at_budget: parseFloat(alertAtBudget) || 30,
+      loop_interval: parseInt(loopInterval) || 30,
+      cycle_timeout: parseInt(cycleTimeout) || 1800,
+      projects_dir: projectsDir,
+      providers: settings?.providers ?? [],
+      language,
+      mcp_servers: settings?.mcp_servers ?? [],
+    };
+    saveMutation.mutate(updated);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Language */}
+      <div className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+        <div className="flex items-center gap-2">
+          <Globe className="h-5 w-5 text-zinc-400" />
+          <h2 className="font-semibold">{t("settings.languageLabel")}</h2>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setLanguage("en")}
+            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              language === "en"
+                ? "bg-primary text-primary-foreground"
+                : "border border-zinc-700 hover:bg-zinc-800"
+            }`}
+          >
+            English
+          </button>
+          <button
+            onClick={() => setLanguage("zh")}
+            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              language === "zh"
+                ? "bg-primary text-primary-foreground"
+                : "border border-zinc-700 hover:bg-zinc-800"
+            }`}
+          >
+            中文
+          </button>
+        </div>
+      </div>
+
+      {/* Runtime Defaults */}
+      <div className="space-y-6 rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+        <h2 className="font-semibold">{t("settings.runtimeDefaults")}</h2>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium">
+              {t("settings.defaultEngine")}
+            </label>
+            <select
+              value={engine}
+              onChange={(e) => setEngine(e.target.value)}
+              className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="claude">Claude Code</option>
+              <option value="codex">Codex CLI</option>
+              <option value="opencode">OpenCode</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium">
+              {t("settings.model")}
+            </label>
+            <select
+              value={defaultModel}
+              onChange={(e) => setDefaultModel(e.target.value)}
+              className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="opus">Opus (deepest reasoning)</option>
+              <option value="sonnet">Sonnet (best coding)</option>
+              <option value="haiku">Haiku (fastest)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium">
+              {t("settings.maxDailyBudget")}
+            </label>
+            <input
+              type="number"
+              value={maxDailyBudget}
+              onChange={(e) => setMaxDailyBudget(e.target.value)}
+              className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium">
+              {t("settings.alertAt")}
+            </label>
+            <input
+              type="number"
+              value={alertAtBudget}
+              onChange={(e) => setAlertAtBudget(e.target.value)}
+              className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium">
+              {t("settings.loopInterval")}
+            </label>
+            <input
+              type="number"
+              value={loopInterval}
+              onChange={(e) => setLoopInterval(e.target.value)}
+              className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium">
+              {t("settings.cycleTimeout")}
+            </label>
+            <input
+              type="number"
+              value={cycleTimeout}
+              onChange={(e) => setCycleTimeout(e.target.value)}
+              className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium">
+            {t("settings.projectsDir")}
+          </label>
+          <input
+            type="text"
+            value={projectsDir}
+            onChange={(e) => setProjectsDir(e.target.value)}
+            className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSave}
+            disabled={saveMutation.isPending}
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {saveMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : saveSuccess ? (
+              <Check className="h-4 w-4" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            {saveSuccess ? t("common.saved") : t("settings.saveSettings")}
+          </button>
+          {saveMutation.isError && (
+            <span className="text-sm text-destructive">
+              {t("settings.saveFailed")}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== Tab 2: AI Providers =====
+
+function QuickSetupPanel({
+  onImport,
+  isImporting,
+}: {
+  readonly onImport: (provider: AiProvider) => void;
+  readonly isImporting: boolean;
+}) {
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
+  const [detected, setDetected] = useState<readonly DetectedProvider[]>([]);
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [hasDetected, setHasDetected] = useState(false);
+  const [importedKeys, setImportedKeys] = useState<Set<string>>(new Set());
+  const [showExportImport, setShowExportImport] = useState(false);
+  const [importJson, setImportJson] = useState("");
+
+  const handleDetect = async () => {
+    setIsDetecting(true);
+    try {
+      const result = await detectProviders();
+      setDetected(result);
+      setHasDetected(true);
+    } catch {
+      setDetected([]);
+      setHasDetected(true);
+    } finally {
+      setIsDetecting(false);
+    }
+  };
+
+  const handleImportOne = (dp: DetectedProvider) => {
+    const provider: AiProvider = {
+      id: `${dp.provider_type}-${Date.now()}`,
+      name: dp.suggested_name,
+      provider_type: dp.provider_type,
+      api_key: dp.api_key,
+      api_base_url: dp.api_base_url,
+      default_model: dp.suggested_model,
+      enabled: true,
+      is_healthy: true,
+      last_error: null,
+    };
+    onImport(provider);
+    setImportedKeys((prev) => new Set([...prev, dp.api_key]));
+  };
+
+  const handleImportAll = () => {
+    for (const dp of detected) {
+      if (!importedKeys.has(dp.api_key)) {
+        handleImportOne(dp);
+      }
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const json = await exportProviders([]);
+      await navigator.clipboard.writeText(json);
+    } catch {
+      // Fallback: silent
+    }
+  };
+
+  const handleImportJson = async () => {
+    if (!importJson.trim()) return;
+    try {
+      await importProviders(importJson);
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+      setImportJson("");
+      setShowExportImport(false);
+    } catch {
+      // Error handled by UI
+    }
+  };
+
+  const sourceIcon = (source: string) => {
+    if (source.startsWith("env:")) return "ENV";
+    if (source.includes("claude")) return "CC";
+    if (source.includes("codex")) return "CDX";
+    return "CFG";
+  };
+
+  const sourceColor = (source: string) => {
+    if (source.startsWith("env:"))
+      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+    if (source.includes("claude"))
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
+    if (source.includes("codex"))
+      return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+    return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+  };
+
+  return (
+    <div className="space-y-3 rounded-md border border-dashed border-primary/30 bg-primary/5 p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <div>
+            <p className="text-sm font-medium">{t("settings.quickSetup")}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("settings.quickSetupDesc")}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowExportImport((v) => !v)}
+            className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
+          >
+            <Upload className="h-3 w-3" />
+            {t("settings.importJson")}
+          </button>
+          <button
+            onClick={handleDetect}
+            disabled={isDetecting}
+            className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {isDetecting ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Search className="h-3 w-3" />
+            )}
+            {isDetecting
+              ? t("settings.detecting")
+              : t("settings.detectProviders")}
+          </button>
+        </div>
+      </div>
+
+      {showExportImport && (
+        <div className="space-y-2 rounded-md border border-zinc-700 bg-zinc-800 p-3">
+          <textarea
+            value={importJson}
+            onChange={(e) => setImportJson(e.target.value)}
+            placeholder='[{"id":"...", "name":"...", "provider_type":"...", "api_key":"...", ...}]'
+            className="h-24 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-mono focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={handleImportJson}
+              disabled={!importJson.trim()}
+              className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              <Download className="h-3 w-3" />
+              {t("settings.importJson")}
+            </button>
+            <button
+              onClick={handleExport}
+              className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-3 py-1 text-xs hover:bg-zinc-800"
+            >
+              <Upload className="h-3 w-3" />
+              {t("settings.exportProviders")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {hasDetected && detected.length === 0 && (
+        <p className="py-2 text-center text-xs text-muted-foreground">
+          {t("settings.noDetected")}
+        </p>
+      )}
+
+      {detected.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-end">
+            <button
+              onClick={handleImportAll}
+              disabled={isImporting}
+              className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
+            >
+              <Plus className="h-3 w-3" />
+              {t("settings.importAll")}
+            </button>
+          </div>
+          {detected.map((dp, idx) => {
+            const isImported = importedKeys.has(dp.api_key);
+            return (
+              <div
+                key={`${dp.source}-${idx}`}
+                className="flex items-center gap-3 rounded-md border border-zinc-700 bg-zinc-800 p-3"
+              >
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${sourceColor(dp.source)}`}
+                >
+                  {sourceIcon(dp.source)}
+                </span>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">{dp.suggested_name}</p>
+                    <span className="rounded-full bg-secondary px-2 py-0.5 text-xs">
+                      {dp.provider_type}
+                    </span>
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{dp.api_key_preview}</span>
+                    <span>|</span>
+                    <span>{dp.suggested_model}</span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-muted-foreground/70">
+                    {dp.source}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleImportOne(dp)}
+                  disabled={isImported || isImporting}
+                  className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${
+                    isImported
+                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                      : "bg-primary text-primary-foreground hover:bg-primary/90"
+                  } disabled:opacity-70`}
+                >
+                  {isImported ? (
+                    <>
+                      <Check className="h-3 w-3" />
+                      {t("settings.imported")}
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-3 w-3" />
+                      {t("settings.importProvider")}
+                    </>
+                  )}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProviderCard({
+  provider,
+  onRemove,
+}: {
+  readonly provider: AiProvider;
+  readonly onRemove: (id: string) => void;
+}) {
+  const [showKey, setShowKey] = useState(false);
+
+  return (
+    <div className="flex items-center gap-4 rounded-md border border-zinc-700 bg-zinc-800 p-4">
+      <div
+        className={`h-3 w-3 rounded-full ${provider.enabled ? (provider.is_healthy ? "bg-green-500" : "bg-yellow-500") : "bg-gray-400"}`}
+      />
+      <div className="flex-1">
+        <div className="flex items-center gap-2">
+          <p className="font-medium">{provider.name}</p>
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs">
+            {provider.provider_type}
+          </span>
+        </div>
+        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+          <span>Model: {provider.default_model}</span>
+          <span>|</span>
+          <button
+            onClick={() => setShowKey((v) => !v)}
+            className="inline-flex items-center gap-1 hover:text-foreground"
+          >
+            {showKey ? (
+              <EyeOff className="h-3 w-3" />
+            ) : (
+              <Eye className="h-3 w-3" />
+            )}
+            {showKey
+              ? provider.api_key
+              : `${provider.api_key.slice(0, 8)}...`}
+          </button>
+        </div>
+        {provider.last_error && (
+          <p className="mt-1 text-xs text-red-500">{provider.last_error}</p>
+        )}
+      </div>
+      <button
+        onClick={() => onRemove(provider.id)}
+        className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+function AddProviderForm({
+  onAdd,
+  isPending,
+}: {
+  readonly onAdd: (provider: AiProvider) => void;
+  readonly isPending: boolean;
+}) {
+  const { t } = useI18n();
+  const [providerType, setProviderType] = useState("claude");
+  const [apiKey, setApiKey] = useState("");
+  const [apiBaseUrl, setApiBaseUrl] = useState(
+    PROVIDER_PRESETS.claude.api_base_url,
+  );
+  const [defaultModel, setDefaultModel] = useState(
+    PROVIDER_PRESETS.claude.default_model,
+  );
+  const [name, setName] = useState(PROVIDER_PRESETS.claude.name);
+
+  const handleTypeChange = (type: string) => {
+    setProviderType(type);
+    const preset = PROVIDER_PRESETS[type];
+    if (preset) {
+      setName(preset.name);
+      setApiBaseUrl(preset.api_base_url);
+      setDefaultModel(preset.default_model);
+    }
+  };
+
+  const handleSubmit = () => {
+    if (!apiKey.trim()) return;
+    onAdd({
+      id: `${providerType}-${Date.now()}`,
+      name,
+      provider_type: providerType,
+      api_key: apiKey,
+      api_base_url: apiBaseUrl,
+      default_model: defaultModel,
+      enabled: true,
+      is_healthy: true,
+      last_error: null,
+    });
+    setApiKey("");
+  };
+
+  return (
+    <div className="space-y-3 rounded-md border border-dashed border-zinc-700 p-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs font-medium">
+            {t("settings.providerType")}
+          </label>
+          <select
+            value={providerType}
+            onChange={(e) => handleTypeChange(e.target.value)}
+            className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            {Object.entries(PROVIDER_PRESETS).map(([key, preset]) => (
+              <option key={key} value={key}>
+                {preset.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium">
+            {t("settings.displayName")}
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium">
+          {t("settings.apiKey")}
+        </label>
+        <input
+          type="password"
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          placeholder="sk-..."
+          className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs font-medium">
+            {t("settings.apiBaseUrl")}
+          </label>
+          <input
+            type="text"
+            value={apiBaseUrl}
+            onChange={(e) => setApiBaseUrl(e.target.value)}
+            className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium">
+            {t("settings.defaultModel")}
+          </label>
+          <input
+            type="text"
+            value={defaultModel}
+            onChange={(e) => setDefaultModel(e.target.value)}
+            className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+      </div>
+      <button
+        onClick={handleSubmit}
+        disabled={!apiKey.trim() || isPending}
+        className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+      >
+        {isPending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Plus className="h-4 w-4" />
+        )}
+        {t("settings.addProvider")}
+      </button>
+    </div>
+  );
+}
+
+function ProvidersTab({
+  settings,
+}: {
+  readonly settings: AppSettings | undefined;
+}) {
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
+  const [showAddProvider, setShowAddProvider] = useState(false);
+
+  const addProviderMutation = useMutation({
+    mutationFn: (provider: AiProvider) => addProvider(provider),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+      setShowAddProvider(false);
+    },
+  });
+
+  const removeProviderMutation = useMutation({
+    mutationFn: (providerId: string) => removeProvider(providerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+    },
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Quick Setup */}
+      <QuickSetupPanel
+        onImport={(p) => addProviderMutation.mutate(p)}
+        isImporting={addProviderMutation.isPending}
+      />
+
+      {/* Provider List */}
+      <div className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold">{t("settings.aiProviders")}</h2>
+            <p className="text-sm text-muted-foreground">
+              {t("settings.aiProvidersDesc")}
+            </p>
+          </div>
+          <button
+            onClick={() => setShowAddProvider((v) => !v)}
+            className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-3 py-1.5 text-sm hover:bg-zinc-800"
+          >
+            <Plus className="h-4 w-4" />
+            {t("common.add")}
+          </button>
+        </div>
+
+        {showAddProvider && (
+          <AddProviderForm
+            onAdd={(p) => addProviderMutation.mutate(p)}
+            isPending={addProviderMutation.isPending}
+          />
+        )}
+
+        <div className="space-y-2">
+          {settings?.providers && settings.providers.length > 0 ? (
+            settings.providers.map((p) => (
+              <ProviderCard
+                key={p.id}
+                provider={p}
+                onRemove={(id) => removeProviderMutation.mutate(id)}
+              />
+            ))
+          ) : (
+            <div className="flex items-center gap-2 rounded-md border border-dashed border-zinc-700 p-4 text-sm text-muted-foreground">
+              <AlertCircle className="h-4 w-4" />
+              {t("settings.noProviders")}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== Tab 3: MCP Servers =====
 
 function McpPresetCard({
   preset,
@@ -96,7 +849,7 @@ function McpPresetCard({
   };
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border bg-background p-3">
+    <div className="flex flex-col gap-2 rounded-md border border-zinc-700 bg-zinc-800 p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1">
           <div className="flex items-center gap-2">
@@ -172,7 +925,7 @@ function McpServerRow({
   const envEntries = Object.entries(server.env);
 
   return (
-    <div className="space-y-2 rounded-md border p-4">
+    <div className="space-y-2 rounded-md border border-zinc-700 bg-zinc-800 p-4">
       <div className="flex items-center gap-3">
         <div
           className={`h-3 w-3 rounded-full ${server.enabled ? "bg-green-500" : "bg-gray-400"}`}
@@ -226,7 +979,7 @@ function McpServerRow({
   );
 }
 
-function McpServersPanel() {
+function McpTab() {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const [addedPresetIds, setAddedPresetIds] = useState<Set<string>>(
@@ -294,21 +1047,14 @@ function McpServersPanel() {
   };
 
   return (
-    <div className="space-y-4 rounded-lg border bg-card p-6">
-      <div className="flex items-center gap-2">
-        <Server className="h-5 w-5 text-muted-foreground" />
-        <div>
-          <h2 className="font-semibold">{t("settings.mcpServers")}</h2>
-          <p className="text-sm text-muted-foreground">
-            {t("settings.mcpDesc")}
-          </p>
-        </div>
-      </div>
-
+    <div className="space-y-6">
       {/* Presets - Quick Add */}
       {mcpPresets.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium">{t("settings.mcpPresets")}</h3>
+        <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <h2 className="font-semibold">{t("settings.mcpPresets")}</h2>
+          </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {mcpPresets.map((preset) => (
               <McpPresetCard
@@ -323,19 +1069,29 @@ function McpServersPanel() {
       )}
 
       {/* Configured Servers */}
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium">{t("settings.mcpConfigured")}</h3>
+      <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+        <div className="flex items-center gap-2">
+          <Server className="h-5 w-5 text-zinc-400" />
+          <div>
+            <h2 className="font-semibold">{t("settings.mcpConfigured")}</h2>
+            <p className="text-sm text-muted-foreground">
+              {t("settings.mcpDesc")}
+            </p>
+          </div>
+        </div>
         {mcpServers.length > 0 ? (
-          mcpServers.map((server) => (
-            <McpServerRow
-              key={server.id}
-              server={server}
-              onRemove={handleRemoveServer}
-              onToggle={handleToggleServer}
-            />
-          ))
+          <div className="space-y-2">
+            {mcpServers.map((server) => (
+              <McpServerRow
+                key={server.id}
+                server={server}
+                onRemove={handleRemoveServer}
+                onToggle={handleToggleServer}
+              />
+            ))}
+          </div>
         ) : (
-          <div className="flex items-center gap-2 rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 rounded-md border border-dashed border-zinc-700 p-4 text-sm text-muted-foreground">
             <AlertCircle className="h-4 w-4" />
             {t("settings.mcpNoServers")}
           </div>
@@ -345,231 +1101,7 @@ function McpServersPanel() {
   );
 }
 
-// ===== System Environment Panel =====
-
-function SystemEnvironmentPanel() {
-  const { t } = useI18n();
-  const [installingTool, setInstallingTool] = useState<string | null>(null);
-  const [installResult, setInstallResult] = useState<{
-    tool: string;
-    success: boolean;
-    message: string;
-  } | null>(null);
-
-  const {
-    data: systemInfo,
-    isLoading,
-    isRefetching,
-    refetch,
-  } = useQuery({
-    queryKey: ["system-info"],
-    queryFn: detectSystem,
-    enabled: false,
-    staleTime: Infinity,
-  });
-
-  const handleRefresh = () => {
-    refetch();
-  };
-
-  const handleInstall = async (tool: ToolInfo) => {
-    setInstallingTool(tool.name);
-    setInstallResult(null);
-    try {
-      const result = await installTool(tool.name);
-      setInstallResult({ tool: tool.name, success: true, message: result });
-      // Refresh system info after installation
-      refetch();
-    } catch (err) {
-      setInstallResult({
-        tool: tool.name,
-        success: false,
-        message: String(err),
-      });
-    } finally {
-      setInstallingTool(null);
-    }
-  };
-
-  if (isLoading || isRefetching) {
-    return (
-      <div className="space-y-4 rounded-lg border bg-card p-6">
-        <div className="flex items-center gap-2">
-          <Monitor className="h-5 w-5 text-muted-foreground" />
-          <h2 className="font-semibold">{t("system.title")}</h2>
-        </div>
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          <span className="ml-2 text-sm text-muted-foreground">
-            {t("system.refreshing")}
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  if (!systemInfo) {
-    return (
-      <div className="space-y-4 rounded-lg border bg-card p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Monitor className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <h2 className="font-semibold">{t("system.title")}</h2>
-              <p className="text-sm text-muted-foreground">
-                {t("system.subtitle")}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={handleRefresh}
-            className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm hover:bg-accent"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            {t("system.refresh")}
-          </button>
-        </div>
-        <p className="py-4 text-center text-sm text-muted-foreground">
-          {t("system.clickRefresh")}
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4 rounded-lg border bg-card p-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Monitor className="h-5 w-5 text-muted-foreground" />
-          <div>
-            <h2 className="font-semibold">{t("system.title")}</h2>
-            <p className="text-sm text-muted-foreground">
-              {t("system.subtitle")}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={handleRefresh}
-          disabled={isRefetching}
-          className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
-        >
-          <RefreshCw
-            className={`h-3.5 w-3.5 ${isRefetching ? "animate-spin" : ""}`}
-          />
-          {t("system.refresh")}
-        </button>
-      </div>
-
-      {systemInfo && (
-        <>
-          {/* System Info Grid */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-md border p-3">
-              <p className="text-xs text-muted-foreground">{t("system.os")}</p>
-              <p className="font-medium capitalize">{systemInfo.os}</p>
-            </div>
-            <div className="rounded-md border p-3">
-              <p className="text-xs text-muted-foreground">
-                {t("system.arch")}
-              </p>
-              <p className="font-medium">{systemInfo.arch}</p>
-            </div>
-            <div className="rounded-md border p-3">
-              <p className="text-xs text-muted-foreground">
-                {t("system.nodeVersion")}
-              </p>
-              <p className="font-medium">
-                {systemInfo.node_version ?? (
-                  <span className="text-red-500">{t("system.notFound")}</span>
-                )}
-              </p>
-            </div>
-            <div className="rounded-md border p-3">
-              <p className="text-xs text-muted-foreground">
-                {t("system.npmVersion")}
-              </p>
-              <p className="font-medium">
-                {systemInfo.npm_version ?? (
-                  <span className="text-red-500">{t("system.notFound")}</span>
-                )}
-              </p>
-            </div>
-          </div>
-
-          {/* Shells */}
-          <div>
-            <div className="mb-2 flex items-center gap-2">
-              <Terminal className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-sm font-medium">{t("system.shells")}</h3>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {systemInfo.shells.map((shell) => (
-                <div
-                  key={shell.name}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
-                    shell.available
-                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                      : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
-                  }`}
-                >
-                  {shell.available ? (
-                    <CheckCircle className="h-3 w-3" />
-                  ) : (
-                    <XCircle className="h-3 w-3" />
-                  )}
-                  {shell.name}
-                  {shell.version && (
-                    <span className="opacity-70">
-                      {shell.version.slice(0, 20)}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* CLI Tools */}
-          <div>
-            <div className="mb-2 flex items-center gap-2">
-              <h3 className="text-sm font-medium">{t("system.cliTools")}</h3>
-            </div>
-            <div className="space-y-2">
-              {systemInfo.tools.map((tool) => (
-                <ToolRow
-                  key={tool.name}
-                  tool={tool}
-                  isInstalling={installingTool === tool.name}
-                  installResult={
-                    installResult?.tool === tool.name ? installResult : null
-                  }
-                  hasNpm={systemInfo.npm_version !== null}
-                  onInstall={() => handleInstall(tool)}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Node.js warning */}
-          {!systemInfo.node_version && (
-            <div className="flex items-center gap-2 rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-200">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>{t("system.noNode")}</span>
-              <a
-                href="https://nodejs.org/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="ml-auto inline-flex items-center gap-1 font-medium underline"
-              >
-                nodejs.org
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
+// ===== Tab 4: System =====
 
 function ToolRow({
   tool,
@@ -590,7 +1122,7 @@ function ToolRow({
   const { t } = useI18n();
 
   return (
-    <div className="flex items-center gap-3 rounded-md border p-3">
+    <div className="flex items-center gap-3 rounded-md border border-zinc-700 bg-zinc-800 p-3">
       <div
         className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
           tool.available
@@ -637,7 +1169,7 @@ function ToolRow({
             href={tool.install_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-accent"
+            className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
           >
             <ExternalLink className="h-3 w-3" />
             {t("system.installGuide")}
@@ -662,423 +1194,219 @@ function ToolRow({
   );
 }
 
-// ===== Quick Setup Panel =====
-
-function QuickSetupPanel({
-  onImport,
-  isImporting,
-}: {
-  readonly onImport: (provider: AiProvider) => void;
-  readonly isImporting: boolean;
-}) {
+function SystemTab() {
   const { t } = useI18n();
-  const queryClient = useQueryClient();
-  const [detected, setDetected] = useState<readonly DetectedProvider[]>([]);
-  const [isDetecting, setIsDetecting] = useState(false);
-  const [hasDetected, setHasDetected] = useState(false);
-  const [importedKeys, setImportedKeys] = useState<Set<string>>(new Set());
-  const [showExportImport, setShowExportImport] = useState(false);
-  const [importJson, setImportJson] = useState("");
+  const [installingTool, setInstallingTool] = useState<string | null>(null);
+  const [installResult, setInstallResult] = useState<{
+    tool: string;
+    success: boolean;
+    message: string;
+  } | null>(null);
 
-  const handleDetect = async () => {
-    setIsDetecting(true);
+  const {
+    data: systemInfo,
+    isLoading,
+    isRefetching,
+    refetch,
+  } = useQuery({
+    queryKey: ["system-info"],
+    queryFn: detectSystem,
+    enabled: false,
+    staleTime: Infinity,
+  });
+
+  const handleRefresh = () => {
+    refetch();
+  };
+
+  const handleInstall = async (tool: ToolInfo) => {
+    setInstallingTool(tool.name);
+    setInstallResult(null);
     try {
-      const result = await detectProviders();
-      setDetected(result);
-      setHasDetected(true);
-    } catch {
-      setDetected([]);
-      setHasDetected(true);
+      const result = await installTool(tool.name);
+      setInstallResult({ tool: tool.name, success: true, message: result });
+      refetch();
+    } catch (err) {
+      setInstallResult({
+        tool: tool.name,
+        success: false,
+        message: String(err),
+      });
     } finally {
-      setIsDetecting(false);
+      setInstallingTool(null);
     }
   };
 
-  const handleImportOne = (dp: DetectedProvider) => {
-    const provider: AiProvider = {
-      id: `${dp.provider_type}-${Date.now()}`,
-      name: dp.suggested_name,
-      provider_type: dp.provider_type,
-      api_key: dp.api_key,
-      api_base_url: dp.api_base_url,
-      default_model: dp.suggested_model,
-      enabled: true,
-      is_healthy: true,
-      last_error: null,
-    };
-    onImport(provider);
-    setImportedKeys((prev) => new Set([...prev, dp.api_key]));
-  };
+  if (isLoading || isRefetching) {
+    return (
+      <div className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+        <div className="flex items-center gap-2">
+          <Monitor className="h-5 w-5 text-zinc-400" />
+          <h2 className="font-semibold">{t("system.title")}</h2>
+        </div>
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <span className="ml-2 text-sm text-muted-foreground">
+            {t("system.refreshing")}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
-  const handleImportAll = () => {
-    for (const dp of detected) {
-      if (!importedKeys.has(dp.api_key)) {
-        handleImportOne(dp);
-      }
-    }
-  };
-
-  const handleExport = async () => {
-    try {
-      const json = await exportProviders([]);
-      // Copy to clipboard
-      await navigator.clipboard.writeText(json);
-    } catch {
-      // Fallback: show in text area
-    }
-  };
-
-  const handleImportJson = async () => {
-    if (!importJson.trim()) return;
-    try {
-      await importProviders(importJson);
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
-      setImportJson("");
-      setShowExportImport(false);
-    } catch {
-      // Error handled by UI
-    }
-  };
-
-  const sourceIcon = (source: string) => {
-    if (source.startsWith("env:")) return "ENV";
-    if (source.includes("claude")) return "CC";
-    if (source.includes("codex")) return "CDX";
-    return "CFG";
-  };
-
-  const sourceColor = (source: string) => {
-    if (source.startsWith("env:"))
-      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-    if (source.includes("claude"))
-      return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
-    if (source.includes("codex"))
-      return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
-    return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
-  };
+  if (!systemInfo) {
+    return (
+      <div className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Monitor className="h-5 w-5 text-zinc-400" />
+            <div>
+              <h2 className="font-semibold">{t("system.title")}</h2>
+              <p className="text-sm text-muted-foreground">
+                {t("system.subtitle")}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleRefresh}
+            className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-3 py-1.5 text-sm hover:bg-zinc-800"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            {t("system.refresh")}
+          </button>
+        </div>
+        <p className="py-4 text-center text-sm text-muted-foreground">
+          {t("system.clickRefresh")}
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-3 rounded-md border border-dashed border-primary/30 bg-primary/5 p-4">
+    <div className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900 p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
+          <Monitor className="h-5 w-5 text-zinc-400" />
           <div>
-            <p className="text-sm font-medium">{t("settings.quickSetup")}</p>
-            <p className="text-xs text-muted-foreground">
-              {t("settings.quickSetupDesc")}
+            <h2 className="font-semibold">{t("system.title")}</h2>
+            <p className="text-sm text-muted-foreground">
+              {t("system.subtitle")}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowExportImport((v) => !v)}
-            className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-accent"
-          >
-            <Upload className="h-3 w-3" />
-            {t("settings.importJson")}
-          </button>
-          <button
-            onClick={handleDetect}
-            disabled={isDetecting}
-            className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          >
-            {isDetecting ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Search className="h-3 w-3" />
-            )}
-            {isDetecting
-              ? t("settings.detecting")
-              : t("settings.detectProviders")}
-          </button>
-        </div>
-      </div>
-
-      {/* Export / Import JSON area */}
-      {showExportImport && (
-        <div className="space-y-2 rounded-md border bg-background p-3">
-          <textarea
-            value={importJson}
-            onChange={(e) => setImportJson(e.target.value)}
-            placeholder='[{"id":"...", "name":"...", "provider_type":"...", "api_key":"...", ...}]'
-            className="h-24 w-full rounded-md border bg-background px-3 py-2 text-xs font-mono focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        <button
+          onClick={handleRefresh}
+          disabled={isRefetching}
+          className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-3 py-1.5 text-sm hover:bg-zinc-800 disabled:opacity-50"
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${isRefetching ? "animate-spin" : ""}`}
           />
-          <div className="flex gap-2">
-            <button
-              onClick={handleImportJson}
-              disabled={!importJson.trim()}
-              className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              <Download className="h-3 w-3" />
-              {t("settings.importJson")}
-            </button>
-            <button
-              onClick={handleExport}
-              className="inline-flex items-center gap-1 rounded-md border px-3 py-1 text-xs hover:bg-accent"
-            >
-              <Upload className="h-3 w-3" />
-              {t("settings.exportProviders")}
-            </button>
-          </div>
+          {t("system.refresh")}
+        </button>
+      </div>
+
+      {/* System Info Grid */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-md border border-zinc-700 bg-zinc-800 p-3">
+          <p className="text-xs text-muted-foreground">{t("system.os")}</p>
+          <p className="font-medium capitalize">{systemInfo.os}</p>
         </div>
-      )}
-
-      {/* Detected Providers */}
-      {hasDetected && detected.length === 0 && (
-        <p className="py-2 text-center text-xs text-muted-foreground">
-          {t("settings.noDetected")}
-        </p>
-      )}
-
-      {detected.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-end">
-            <button
-              onClick={handleImportAll}
-              disabled={isImporting}
-              className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-accent"
-            >
-              <Plus className="h-3 w-3" />
-              {t("settings.importAll")}
-            </button>
-          </div>
-          {detected.map((dp, idx) => {
-            const isImported = importedKeys.has(dp.api_key);
-            return (
-              <div
-                key={`${dp.source}-${idx}`}
-                className="flex items-center gap-3 rounded-md border bg-background p-3"
-              >
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${sourceColor(dp.source)}`}
-                >
-                  {sourceIcon(dp.source)}
-                </span>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium">{dp.suggested_name}</p>
-                    <span className="rounded-full bg-secondary px-2 py-0.5 text-xs">
-                      {dp.provider_type}
-                    </span>
-                  </div>
-                  <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{dp.api_key_preview}</span>
-                    <span>|</span>
-                    <span>{dp.suggested_model}</span>
-                  </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground/70">
-                    {dp.source}
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleImportOne(dp)}
-                  disabled={isImported || isImporting}
-                  className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${
-                    isImported
-                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                      : "bg-primary text-primary-foreground hover:bg-primary/90"
-                  } disabled:opacity-70`}
-                >
-                  {isImported ? (
-                    <>
-                      <Check className="h-3 w-3" />
-                      {t("settings.imported")}
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="h-3 w-3" />
-                      {t("settings.importProvider")}
-                    </>
-                  )}
-                </button>
-              </div>
-            );
-          })}
+        <div className="rounded-md border border-zinc-700 bg-zinc-800 p-3">
+          <p className="text-xs text-muted-foreground">{t("system.arch")}</p>
+          <p className="font-medium">{systemInfo.arch}</p>
         </div>
-      )}
-    </div>
-  );
-}
-
-// ===== Provider Card =====
-
-function ProviderCard({
-  provider,
-  onRemove,
-}: {
-  readonly provider: AiProvider;
-  readonly onRemove: (id: string) => void;
-}) {
-  const [showKey, setShowKey] = useState(false);
-
-  return (
-    <div className="flex items-center gap-4 rounded-md border p-4">
-      <div
-        className={`h-3 w-3 rounded-full ${provider.enabled ? (provider.is_healthy ? "bg-green-500" : "bg-yellow-500") : "bg-gray-400"}`}
-      />
-      <div className="flex-1">
-        <div className="flex items-center gap-2">
-          <p className="font-medium">{provider.name}</p>
-          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs">
-            {provider.provider_type}
-          </span>
-        </div>
-        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-          <span>Model: {provider.default_model}</span>
-          <span>|</span>
-          <button
-            onClick={() => setShowKey((v) => !v)}
-            className="inline-flex items-center gap-1 hover:text-foreground"
-          >
-            {showKey ? (
-              <EyeOff className="h-3 w-3" />
-            ) : (
-              <Eye className="h-3 w-3" />
+        <div className="rounded-md border border-zinc-700 bg-zinc-800 p-3">
+          <p className="text-xs text-muted-foreground">
+            {t("system.nodeVersion")}
+          </p>
+          <p className="font-medium">
+            {systemInfo.node_version ?? (
+              <span className="text-red-500">{t("system.notFound")}</span>
             )}
-            {showKey
-              ? provider.api_key
-              : `${provider.api_key.slice(0, 8)}...`}
-          </button>
+          </p>
         </div>
-        {provider.last_error && (
-          <p className="mt-1 text-xs text-red-500">{provider.last_error}</p>
-        )}
-      </div>
-      <button
-        onClick={() => onRemove(provider.id)}
-        className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
-    </div>
-  );
-}
-
-// ===== Add Provider Form =====
-
-function AddProviderForm({
-  onAdd,
-  isPending,
-}: {
-  readonly onAdd: (provider: AiProvider) => void;
-  readonly isPending: boolean;
-}) {
-  const { t } = useI18n();
-  const [providerType, setProviderType] = useState("claude");
-  const [apiKey, setApiKey] = useState("");
-  const [apiBaseUrl, setApiBaseUrl] = useState(
-    PROVIDER_PRESETS.claude.api_base_url,
-  );
-  const [defaultModel, setDefaultModel] = useState(
-    PROVIDER_PRESETS.claude.default_model,
-  );
-  const [name, setName] = useState(PROVIDER_PRESETS.claude.name);
-
-  const handleTypeChange = (type: string) => {
-    setProviderType(type);
-    const preset = PROVIDER_PRESETS[type];
-    if (preset) {
-      setName(preset.name);
-      setApiBaseUrl(preset.api_base_url);
-      setDefaultModel(preset.default_model);
-    }
-  };
-
-  const handleSubmit = () => {
-    if (!apiKey.trim()) return;
-    onAdd({
-      id: `${providerType}-${Date.now()}`,
-      name,
-      provider_type: providerType,
-      api_key: apiKey,
-      api_base_url: apiBaseUrl,
-      default_model: defaultModel,
-      enabled: true,
-      is_healthy: true,
-      last_error: null,
-    });
-    setApiKey("");
-  };
-
-  return (
-    <div className="space-y-3 rounded-md border border-dashed p-4">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-xs font-medium">
-            {t("settings.providerType")}
-          </label>
-          <select
-            value={providerType}
-            onChange={(e) => handleTypeChange(e.target.value)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            {Object.entries(PROVIDER_PRESETS).map(([key, preset]) => (
-              <option key={key} value={key}>
-                {preset.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium">
-            {t("settings.displayName")}
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
+        <div className="rounded-md border border-zinc-700 bg-zinc-800 p-3">
+          <p className="text-xs text-muted-foreground">
+            {t("system.npmVersion")}
+          </p>
+          <p className="font-medium">
+            {systemInfo.npm_version ?? (
+              <span className="text-red-500">{t("system.notFound")}</span>
+            )}
+          </p>
         </div>
       </div>
+
+      {/* Shells */}
       <div>
-        <label className="mb-1 block text-xs font-medium">
-          {t("settings.apiKey")}
-        </label>
-        <input
-          type="password"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-          placeholder="sk-..."
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-xs font-medium">
-            {t("settings.apiBaseUrl")}
-          </label>
-          <input
-            type="text"
-            value={apiBaseUrl}
-            onChange={(e) => setApiBaseUrl(e.target.value)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
+        <div className="mb-2 flex items-center gap-2">
+          <Terminal className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-medium">{t("system.shells")}</h3>
         </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium">
-            {t("settings.defaultModel")}
-          </label>
-          <input
-            type="text"
-            value={defaultModel}
-            onChange={(e) => setDefaultModel(e.target.value)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
+        <div className="flex flex-wrap gap-2">
+          {systemInfo.shells.map((shell) => (
+            <div
+              key={shell.name}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+                shell.available
+                  ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                  : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+              }`}
+            >
+              {shell.available ? (
+                <CheckCircle className="h-3 w-3" />
+              ) : (
+                <XCircle className="h-3 w-3" />
+              )}
+              {shell.name}
+              {shell.version && (
+                <span className="opacity-70">
+                  {shell.version.slice(0, 20)}
+                </span>
+              )}
+            </div>
+          ))}
         </div>
       </div>
-      <button
-        onClick={handleSubmit}
-        disabled={!apiKey.trim() || isPending}
-        className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-      >
-        {isPending ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Plus className="h-4 w-4" />
-        )}
-        {t("settings.addProvider")}
-      </button>
+
+      {/* CLI Tools */}
+      <div>
+        <div className="mb-2 flex items-center gap-2">
+          <h3 className="text-sm font-medium">{t("system.cliTools")}</h3>
+        </div>
+        <div className="space-y-2">
+          {systemInfo.tools.map((tool) => (
+            <ToolRow
+              key={tool.name}
+              tool={tool}
+              isInstalling={installingTool === tool.name}
+              installResult={
+                installResult?.tool === tool.name ? installResult : null
+              }
+              hasNpm={systemInfo.npm_version !== null}
+              onInstall={() => handleInstall(tool)}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Node.js warning */}
+      {!systemInfo.node_version && (
+        <div className="flex items-center gap-2 rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-200">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{t("system.noNode")}</span>
+          <a
+            href="https://nodejs.org/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-auto inline-flex items-center gap-1 font-medium underline"
+          >
+            nodejs.org
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
+      )}
     </div>
   );
 }
@@ -1086,76 +1414,13 @@ function AddProviderForm({
 // ===== Main Settings Page =====
 
 export function Settings() {
-  const queryClient = useQueryClient();
-  const { t, language, setLanguage } = useI18n();
+  const { t } = useI18n();
+  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["settings"],
     queryFn: loadSettings,
   });
-
-  const [engine, setEngine] = useState("claude");
-  const [defaultModel, setDefaultModel] = useState("sonnet");
-  const [maxDailyBudget, setMaxDailyBudget] = useState("50");
-  const [alertAtBudget, setAlertAtBudget] = useState("30");
-  const [loopInterval, setLoopInterval] = useState("30");
-  const [cycleTimeout, setCycleTimeout] = useState("1800");
-  const [projectsDir, setProjectsDir] = useState("");
-  const [showAddProvider, setShowAddProvider] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-
-  // Load settings into form state
-  useEffect(() => {
-    if (settings) {
-      setEngine(settings.default_engine);
-      setDefaultModel(settings.default_model);
-      setMaxDailyBudget(String(settings.max_daily_budget));
-      setAlertAtBudget(String(settings.alert_at_budget));
-      setLoopInterval(String(settings.loop_interval));
-      setCycleTimeout(String(settings.cycle_timeout));
-      setProjectsDir(settings.projects_dir);
-    }
-  }, [settings]);
-
-  const saveMutation = useMutation({
-    mutationFn: (s: AppSettings) => saveSettingsApi(s),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2000);
-    },
-  });
-
-  const addProviderMutation = useMutation({
-    mutationFn: (provider: AiProvider) => addProvider(provider),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
-      setShowAddProvider(false);
-    },
-  });
-
-  const removeProviderMutation = useMutation({
-    mutationFn: (providerId: string) => removeProvider(providerId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
-    },
-  });
-
-  const handleSave = () => {
-    const updated: AppSettings = {
-      default_engine: engine,
-      default_model: defaultModel,
-      max_daily_budget: parseFloat(maxDailyBudget) || 50,
-      alert_at_budget: parseFloat(alertAtBudget) || 30,
-      loop_interval: parseInt(loopInterval) || 30,
-      cycle_timeout: parseInt(cycleTimeout) || 1800,
-      projects_dir: projectsDir,
-      providers: settings?.providers ?? [],
-      language,
-      mcp_servers: settings?.mcp_servers ?? [],
-    };
-    saveMutation.mutate(updated);
-  };
 
   if (isLoading) {
     return (
@@ -1166,222 +1431,18 @@ export function Settings() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold">{t("settings.title")}</h1>
         <p className="text-muted-foreground">{t("settings.subtitle")}</p>
       </div>
 
-      {/* MCP Servers */}
-      <McpServersPanel />
+      <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {/* System Environment - First section for visibility */}
-      <SystemEnvironmentPanel />
-
-      {/* Language */}
-      <div className="space-y-4 rounded-lg border bg-card p-6">
-        <div className="flex items-center gap-2">
-          <Globe className="h-5 w-5 text-muted-foreground" />
-          <h2 className="font-semibold">{t("settings.languageLabel")}</h2>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setLanguage("en")}
-            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-              language === "en"
-                ? "bg-primary text-primary-foreground"
-                : "border hover:bg-accent"
-            }`}
-          >
-            English
-          </button>
-          <button
-            onClick={() => setLanguage("zh")}
-            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-              language === "zh"
-                ? "bg-primary text-primary-foreground"
-                : "border hover:bg-accent"
-            }`}
-          >
-            中文
-          </button>
-        </div>
-      </div>
-
-      {/* AI Providers */}
-      <div className="space-y-4 rounded-lg border bg-card p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="font-semibold">{t("settings.aiProviders")}</h2>
-            <p className="text-sm text-muted-foreground">
-              {t("settings.aiProvidersDesc")}
-            </p>
-          </div>
-          <button
-            onClick={() => setShowAddProvider((v) => !v)}
-            className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm hover:bg-accent"
-          >
-            <Plus className="h-4 w-4" />
-            {t("common.add")}
-          </button>
-        </div>
-
-        {/* Quick Setup - auto-detect providers */}
-        <QuickSetupPanel
-          onImport={(p) => addProviderMutation.mutate(p)}
-          isImporting={addProviderMutation.isPending}
-        />
-
-        {showAddProvider && (
-          <AddProviderForm
-            onAdd={(p) => addProviderMutation.mutate(p)}
-            isPending={addProviderMutation.isPending}
-          />
-        )}
-
-        <div className="space-y-2">
-          {settings?.providers && settings.providers.length > 0 ? (
-            settings.providers.map((p) => (
-              <ProviderCard
-                key={p.id}
-                provider={p}
-                onRemove={(id) => removeProviderMutation.mutate(id)}
-              />
-            ))
-          ) : (
-            <div className="flex items-center gap-2 rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-              <AlertCircle className="h-4 w-4" />
-              {t("settings.noProviders")}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* General Settings */}
-      <div className="space-y-6 rounded-lg border bg-card p-6">
-        <h2 className="font-semibold">{t("settings.runtimeDefaults")}</h2>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          {/* Engine */}
-          <div>
-            <label className="mb-1 block text-sm font-medium">
-              {t("settings.defaultEngine")}
-            </label>
-            <select
-              value={engine}
-              onChange={(e) => setEngine(e.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="claude">Claude Code</option>
-              <option value="codex">Codex CLI</option>
-              <option value="opencode">OpenCode</option>
-            </select>
-          </div>
-
-          {/* Model */}
-          <div>
-            <label className="mb-1 block text-sm font-medium">
-              {t("settings.model")}
-            </label>
-            <select
-              value={defaultModel}
-              onChange={(e) => setDefaultModel(e.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="opus">Opus (deepest reasoning)</option>
-              <option value="sonnet">Sonnet (best coding)</option>
-              <option value="haiku">Haiku (fastest)</option>
-            </select>
-          </div>
-
-          {/* Budget */}
-          <div>
-            <label className="mb-1 block text-sm font-medium">
-              {t("settings.maxDailyBudget")}
-            </label>
-            <input
-              type="number"
-              value={maxDailyBudget}
-              onChange={(e) => setMaxDailyBudget(e.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-
-          {/* Alert budget */}
-          <div>
-            <label className="mb-1 block text-sm font-medium">
-              {t("settings.alertAt")}
-            </label>
-            <input
-              type="number"
-              value={alertAtBudget}
-              onChange={(e) => setAlertAtBudget(e.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-
-          {/* Loop Interval */}
-          <div>
-            <label className="mb-1 block text-sm font-medium">
-              {t("settings.loopInterval")}
-            </label>
-            <input
-              type="number"
-              value={loopInterval}
-              onChange={(e) => setLoopInterval(e.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-
-          {/* Cycle Timeout */}
-          <div>
-            <label className="mb-1 block text-sm font-medium">
-              {t("settings.cycleTimeout")}
-            </label>
-            <input
-              type="number"
-              value={cycleTimeout}
-              onChange={(e) => setCycleTimeout(e.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-        </div>
-
-        {/* Projects dir - full width */}
-        <div>
-          <label className="mb-1 block text-sm font-medium">
-            {t("settings.projectsDir")}
-          </label>
-          <input
-            type="text"
-            value={projectsDir}
-            onChange={(e) => setProjectsDir(e.target.value)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleSave}
-            disabled={saveMutation.isPending}
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          >
-            {saveMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : saveSuccess ? (
-              <Check className="h-4 w-4" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            {saveSuccess ? t("common.saved") : t("settings.saveSettings")}
-          </button>
-          {saveMutation.isError && (
-            <span className="text-sm text-destructive">
-              {t("settings.saveFailed")}
-            </span>
-          )}
-        </div>
-      </div>
+      {activeTab === "general" && <GeneralTab settings={settings} />}
+      {activeTab === "providers" && <ProvidersTab settings={settings} />}
+      {activeTab === "mcp" && <McpTab />}
+      {activeTab === "system" && <SystemTab />}
     </div>
   );
 }

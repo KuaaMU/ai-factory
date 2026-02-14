@@ -6,3 +6,4 @@ pub mod settings;
 pub mod system;
 pub mod provider_detect;
 pub mod mcp;
+pub mod skill_manager;
