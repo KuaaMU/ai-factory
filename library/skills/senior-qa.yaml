@@ -1,0 +1,51 @@
+id: senior-qa
+name: "Senior QA & Test Strategy"
+category: engineering
+description: "Comprehensive test strategy design and execution covering unit, integration, end-to-end, and exploratory testing. Emphasizes risk-based test prioritization and context-driven methodology."
+
+capabilities:
+  - "Test strategy design based on risk analysis and product context"
+  - "Test pyramid optimization (unit, integration, E2E ratio balancing)"
+  - "Exploratory testing session design and execution"
+  - "Test automation framework selection and architecture"
+  - "Performance and load testing design"
+  - "Test coverage analysis and gap identification"
+
+use_cases:
+  - "Building test strategy for a new product or feature"
+  - "Improving test coverage and reducing regression risk"
+  - "Setting up test automation infrastructure"
+  - "Pre-release quality assessment and sign-off"
+  - "Performance testing before scaling events"
+  - "Post-incident testing gap analysis"
+
+test_strategy:
+  layers:
+    - name: "Unit Tests"
+      ratio: "60-70% of all tests"
+      focus: "Individual functions, business logic, edge cases"
+      speed: "< 10ms per test"
+    - name: "Integration Tests"
+      ratio: "20-30% of all tests"
+      focus: "API contracts, database operations, service interactions"
+      speed: "< 500ms per test"
+    - name: "End-to-End Tests"
+      ratio: "5-10% of all tests"
+      focus: "Critical user journeys, payment flows, authentication"
+      speed: "< 30s per test"
+    - name: "Exploratory Testing"
+      ratio: "Ongoing sessions"
+      focus: "Edge cases, error paths, unexpected user behavior"
+      speed: "Time-boxed sessions (45-90 min)"
+
+  coverage_targets:
+    minimum: "80% line coverage"
+    critical_paths: "95% coverage on payment, auth, data mutation"
+    new_code: "90% coverage on all new code"
+
+output_format: "Test strategy document with risk matrix, test plan, automation recommendations, coverage targets, and exploratory session charters."
+
+recommended_for:
+  - qa-lead
+  - lead-developer
+  - cto

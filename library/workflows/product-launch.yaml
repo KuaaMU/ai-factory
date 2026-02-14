@@ -1,0 +1,56 @@
+id: product-launch
+name: "Product Launch"
+description: "Coordinated product launch workflow covering positioning, content, sales enablement, technical readiness, and launch execution. Designed for both new products and major feature releases."
+
+chain:
+  - step: 1
+    role: cmo
+    persona: seth-godin
+    task: "Define launch positioning. Who is the smallest viable audience? What makes this remarkable (Purple Cow)? Craft the core narrative: what change are we making in the world? Define the launch messaging framework."
+    skills: [seo-content-strategist, product-strategist]
+    output: "Launch positioning document with target audience, core narrative, messaging framework, and remarkability analysis"
+
+  - step: 2
+    role: research-analyst
+    persona: ben-thompson
+    task: "Analyze the competitive landscape for launch timing and positioning. How are competitors positioned? What narrative gaps exist? Where can we own the conversation?"
+    skills: [competitive-intelligence, deep-research]
+    output: "Competitive positioning analysis with differentiation strategy and narrative opportunities"
+
+  - step: 3
+    role: sales-lead
+    persona: aaron-ross
+    task: "Build sales enablement for the launch. Create ICP refinement, competitive battlecards, objection handling scripts, and outbound sequence templates. Define pipeline targets for launch month."
+    skills: [competitive-intelligence, market-sizing]
+    input_from: [1, 2]
+    output: "Sales enablement kit with battlecards, sequences, objection handling, and pipeline targets"
+
+  - step: 4
+    role: cmo
+    persona: seth-godin
+    task: "Design the content launch plan. Create launch content calendar: blog posts, social media, email sequences, Product Hunt preparation, community seeding. Plan the permission-marketing funnel."
+    skills: [seo-content-strategist]
+    input_from: [1, 2]
+    output: "Content launch plan with editorial calendar, channel strategy, and funnel design"
+
+  - step: 5
+    role: devops-sre
+    persona: kelsey-hightower
+    task: "Verify technical launch readiness. Load test for expected launch traffic (2-5x normal). Verify monitoring and alerting. Prepare scaling runbook. Ensure rollback capability."
+    skills: [devops]
+    output: "Technical readiness report with load test results, scaling plan, and incident response procedure"
+
+  - step: 6
+    role: ceo
+    persona: jeff-bezos
+    task: "Final launch review. Evaluate: is the product remarkable enough to launch? Are we ready for the customer experience we are promising? Make final go/no-go decision. Define success metrics for launch."
+    skills: [product-strategist]
+    input_from: [1, 2, 3, 4, 5]
+    output: "Launch decision with success metrics, risk acceptance, and execution timeline"
+
+convergence_cycles: 2
+convergence_description: "After initial planning, cycle through CEO-CMO-Sales to align messaging, timing, and success criteria."
+
+trigger: "When a product or major feature is approaching launch readiness"
+
+final_output: "Complete launch package with positioning, competitive analysis, sales enablement, content plan, technical readiness verification, and executive go/no-go decision."

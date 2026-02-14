@@ -1,0 +1,50 @@
+id: devops
+name: "DevOps & Infrastructure"
+category: engineering
+description: "End-to-end DevOps pipeline design and implementation covering containerization, orchestration, CI/CD, edge deployment, and infrastructure as code. Optimized for startup-scale through enterprise."
+
+capabilities:
+  - "Docker containerization: multi-stage builds, image optimization, security scanning"
+  - "Kubernetes orchestration: deployments, services, ingress, helm charts, operators"
+  - "CI/CD pipeline design: GitHub Actions, GitLab CI, CircleCI, Jenkins"
+  - "Cloudflare Workers and edge deployment for low-latency global distribution"
+  - "Infrastructure as Code with Terraform, Pulumi, or CDK"
+  - "Observability stack setup: Prometheus, Grafana, Loki, OpenTelemetry, Sentry"
+
+use_cases:
+  - "Setting up production deployment pipeline for a new project"
+  - "Containerizing an existing application for portability"
+  - "Migrating from manual deployment to automated CI/CD"
+  - "Designing multi-environment strategy (dev, staging, production)"
+  - "Implementing blue-green or canary deployment strategies"
+  - "Setting up monitoring, alerting, and incident response"
+
+process:
+  - stage: 1
+    name: "Requirements Analysis"
+    description: "Determine scale, availability, compliance, and budget requirements"
+  - stage: 2
+    name: "Architecture Design"
+    description: "Choose hosting (cloud, edge, hybrid), orchestration, and deployment model"
+  - stage: 3
+    name: "Containerization"
+    description: "Dockerize application with optimized multi-stage builds"
+  - stage: 4
+    name: "CI/CD Pipeline"
+    description: "Build, test, scan, and deploy pipeline with proper gating"
+  - stage: 5
+    name: "Infrastructure as Code"
+    description: "Define all infrastructure in version-controlled code"
+  - stage: 6
+    name: "Observability"
+    description: "Instrument metrics, logs, traces, and alerts"
+  - stage: 7
+    name: "Runbook & Documentation"
+    description: "Create operational runbooks for deployment, rollback, and incident response"
+
+output_format: "Infrastructure code (Terraform/Pulumi), CI/CD configuration files, Docker/Kubernetes manifests, and operational runbooks."
+
+recommended_for:
+  - devops-sre
+  - cto
+  - lead-developer

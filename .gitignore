@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+
+# Tauri build
+app/src-tauri/target/
+app/dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+*.key
+*.pem
+
+# Runtime artifacts
+output/.loop.pid
+output/.loop.state
+output/.cycle_history.json
+output/logs/
+
+# Python
+*.egg-info/
+*.egg
+.eggs/

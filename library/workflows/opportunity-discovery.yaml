@@ -1,0 +1,58 @@
+id: opportunity-discovery
+name: "Opportunity Discovery"
+description: "Systematic opportunity discovery workflow that identifies new product opportunities, market gaps, and growth vectors through multi-perspective analysis. Designed to run periodically or when exploring strategic pivots."
+
+chain:
+  - step: 1
+    role: research-analyst
+    persona: ben-thompson
+    task: "Scan the landscape for opportunity signals. Analyze industry trends, technology shifts, regulatory changes, and competitor blind spots. Identify value chain disruptions and aggregation opportunities. Look for underserved segments."
+    skills: [deep-research, competitive-intelligence, market-sizing, web-scraping]
+    output: "Opportunity landscape report with trend analysis, disruption signals, and 10+ raw opportunity candidates"
+
+  - step: 2
+    role: operations
+    persona: paul-graham
+    task: "Filter opportunities through the startup lens. Which of these involve schlep that others avoid? Where can we do things that don't scale to learn fast? Which opportunities serve a small group intensely? Rank by founder-market fit and ramen profitability potential."
+    skills: [micro-saas-launcher, market-sizing]
+    input_from: [1]
+    output: "Filtered opportunity shortlist (top 5) with founder-fit analysis and early validation plan"
+
+  - step: 3
+    role: cmo
+    persona: seth-godin
+    task: "For each shortlisted opportunity, answer: Who is the smallest viable audience? What makes this remarkable? Is there a built-in word-of-mouth mechanism? Can we tell a compelling story about this?"
+    skills: [seo-content-strategist, product-strategist]
+    input_from: [2]
+    output: "Market narrative assessment for each opportunity with remarkability and virality scores"
+
+  - step: 4
+    role: cto
+    persona: werner-vogels
+    task: "Assess technical feasibility for each opportunity. What is the core technical challenge? Can we build an MVP with current capabilities? What is the infrastructure cost at different scales? Any technical moats?"
+    skills: [devops, security-audit]
+    input_from: [2]
+    output: "Technical feasibility matrix for each opportunity with complexity, cost, and moat assessment"
+
+  - step: 5
+    role: critic
+    persona: charlie-munger
+    task: "Apply inversion to the top opportunities. Why would each one fail? What are we not seeing? Check for confirmation bias in the team's enthusiasm. Identify the one opportunity that is being overlooked because it is unglamorous but viable."
+    skills: [premortem, competitive-intelligence]
+    input_from: [1, 2, 3, 4]
+    output: "Critical assessment with failure modes for each opportunity and contrarian recommendation"
+
+  - step: 6
+    role: ceo
+    persona: jeff-bezos
+    task: "Make the final opportunity selection. Apply the regret minimization framework. Choose the top 1-2 opportunities to explore further. Define the next steps: what validation experiments should we run first?"
+    skills: [product-strategist, market-sizing]
+    input_from: [1, 2, 3, 4, 5]
+    output: "Opportunity selection decision with rationale, validation experiment design, and resource allocation"
+
+convergence_cycles: 2
+convergence_description: "After initial analysis, cycle through CEO-Critic-Researcher to challenge assumptions and refine the opportunity thesis."
+
+trigger: "When actively exploring new product opportunities, strategic pivots, or quarterly strategic planning"
+
+final_output: "Opportunity discovery dossier with landscape scan, filtered shortlist, market narrative assessment, technical feasibility, critical analysis, and final selection with validation plan."

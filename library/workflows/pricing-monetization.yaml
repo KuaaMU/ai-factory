@@ -1,0 +1,58 @@
+id: pricing-monetization
+name: "Pricing & Monetization"
+description: "End-to-end pricing strategy workflow from willingness-to-pay research through competitive analysis, financial modeling, packaging design, and implementation planning."
+
+chain:
+  - step: 1
+    role: research-analyst
+    persona: ben-thompson
+    task: "Research the pricing landscape. How do competitors price? What value metrics do they use? What pricing models are emerging in the industry? Analyze aggregation dynamics that affect pricing power."
+    skills: [competitive-intelligence, deep-research]
+    output: "Pricing landscape report with competitor pricing matrix, value metric analysis, and industry trends"
+
+  - step: 2
+    role: cfo
+    persona: patrick-campbell
+    task: "Conduct willingness-to-pay analysis. Design and analyze Van Westendorp or Gabor-Granger survey. Identify optimal price point, acceptable range, and price sensitivity by segment. Calculate target unit economics."
+    skills: [pricing-strategy, financial-unit-economics]
+    input_from: [1]
+    output: "Willingness-to-pay analysis with optimal pricing range, segment sensitivity, and unit economics targets"
+
+  - step: 3
+    role: product-designer
+    persona: don-norman
+    task: "Design the pricing page and plan selection experience. How will users understand and choose plans? Minimize cognitive load. Design the upgrade and downgrade flows. Handle edge cases (mid-cycle changes, trials)."
+    skills: [product-strategist]
+    input_from: [2]
+    output: "Pricing UX design with plan selection flow, upgrade/downgrade experience, and edge case handling"
+
+  - step: 4
+    role: cmo
+    persona: seth-godin
+    task: "Craft the pricing narrative. How do we communicate value at each tier? What is the story that makes the price feel fair and exciting? Design pricing page copy and value propositions per tier."
+    skills: [seo-content-strategist, product-strategist]
+    input_from: [2, 3]
+    output: "Pricing narrative with tier messaging, value propositions, and pricing page copy"
+
+  - step: 5
+    role: critic
+    persona: charlie-munger
+    task: "Stress-test the pricing strategy. Invert: how could this pricing backfire? Check for adverse selection, churn risk at each price point, and competitive vulnerability. Identify the worst-case scenario."
+    skills: [premortem, financial-unit-economics]
+    input_from: [1, 2]
+    output: "Pricing risk assessment with failure modes, competitive vulnerabilities, and mitigation strategies"
+
+  - step: 6
+    role: cfo
+    persona: patrick-campbell
+    task: "Finalize pricing model. Incorporate feedback from critic review. Build the financial impact model: project revenue under new pricing at current and projected customer base. Design the rollout strategy (new customers first, then migration)."
+    skills: [startup-financial-modeling, pricing-strategy]
+    input_from: [1, 2, 5]
+    output: "Final pricing recommendation with financial projections, rollout plan, and migration strategy"
+
+convergence_cycles: 2
+convergence_description: "After initial design, cycle through CFO-Critic-CEO to validate financial assumptions and resolve risk concerns."
+
+trigger: "When setting initial pricing, changing pricing model, or optimizing existing pricing"
+
+final_output: "Complete pricing strategy with market research, willingness-to-pay analysis, tier design, UX specification, pricing narrative, risk assessment, financial projections, and implementation plan."

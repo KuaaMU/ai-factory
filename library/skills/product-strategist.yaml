@@ -1,0 +1,57 @@
+id: product-strategist
+name: "Product Strategy"
+category: product
+description: "End-to-end product strategy from opportunity identification through PRD creation, roadmap prioritization, and success metric definition. Combines Jobs-to-be-Done, RICE scoring, and outcome-driven innovation."
+
+capabilities:
+  - "Jobs-to-be-Done analysis for opportunity identification"
+  - "PRD (Product Requirements Document) creation with user stories and acceptance criteria"
+  - "Feature prioritization using RICE scoring (Reach, Impact, Confidence, Effort)"
+  - "Roadmap design with themes, milestones, and dependencies"
+  - "Success metric definition (North Star, input metrics, guardrail metrics)"
+  - "Competitive feature analysis and differentiation strategy"
+
+use_cases:
+  - "Defining product strategy for a new product or major release"
+  - "Prioritizing a backlog of feature requests and ideas"
+  - "Writing PRDs for engineering teams"
+  - "Defining success metrics and OKRs for product teams"
+  - "Conducting competitive feature analysis"
+  - "Making build vs buy vs partner decisions for product capabilities"
+
+frameworks:
+  jobs_to_be_done:
+    description: "Understand what job the customer is hiring your product to do"
+    steps:
+      - "Identify the functional job (what task are they trying to accomplish)"
+      - "Identify the emotional job (how do they want to feel)"
+      - "Identify the social job (how do they want to be perceived)"
+      - "Map the job steps and identify underserved needs"
+      - "Prioritize by importance and satisfaction gap"
+
+  rice_scoring:
+    description: "Quantitative prioritization framework"
+    formula: "RICE = (Reach x Impact x Confidence) / Effort"
+    scale:
+      reach: "How many users will this affect per quarter"
+      impact: "0.25 (minimal) to 3 (massive)"
+      confidence: "0.5 (low) to 1.0 (high)"
+      effort: "Person-weeks of work"
+
+  prd_template:
+    sections:
+      - "Problem statement and customer context"
+      - "Goals and success metrics"
+      - "User stories with acceptance criteria"
+      - "Scope: what is included and explicitly excluded"
+      - "Design requirements and constraints"
+      - "Dependencies and risks"
+      - "Launch plan and rollout strategy"
+
+output_format: "Product strategy document with opportunity analysis, prioritized roadmap, PRD for top priorities, success metrics, and competitive positioning."
+
+recommended_for:
+  - product-designer
+  - ceo
+  - cmo
+  - interaction-designer

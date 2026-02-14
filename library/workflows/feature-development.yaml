@@ -1,0 +1,58 @@
+id: feature-development
+name: "Feature Development"
+description: "End-to-end feature development workflow from product requirements through design, implementation, testing, and deployment. Emphasizes TDD, security review, and user experience quality."
+
+chain:
+  - step: 1
+    role: product-designer
+    persona: don-norman
+    task: "Define the user problem, primary persona, and desired outcome. Create user stories with acceptance criteria. Map the user flow and identify potential friction points."
+    skills: [product-strategist]
+    output: "Feature PRD with user stories, acceptance criteria, and user flow diagram"
+
+  - step: 2
+    role: interaction-designer
+    persona: alan-cooper
+    task: "Design the interaction model. Eliminate excise (unnecessary steps). Define the goal-directed flow for the primary persona. Specify states (empty, loading, error, success) and transitions."
+    skills: [product-strategist]
+    input_from: [1]
+    output: "Interaction specification with state definitions, transitions, and edge case handling"
+
+  - step: 3
+    role: cto
+    persona: werner-vogels
+    task: "Design the technical architecture for the feature. Define API contracts, data models, and service boundaries. Identify performance, scalability, and security requirements."
+    skills: [devops, security-audit]
+    input_from: [1, 2]
+    output: "Technical design document with API contracts, data model, and architecture decisions"
+
+  - step: 4
+    role: lead-developer
+    persona: dhh
+    task: "Implement the feature following TDD. Write tests first, implement to pass, refactor. Follow conventions. Keep it simple - no premature abstraction. Ensure 80%+ test coverage."
+    skills: [code-review-security, senior-qa]
+    input_from: [2, 3]
+    output: "Implementation with passing tests and 80%+ coverage"
+
+  - step: 5
+    role: qa-lead
+    persona: james-bach
+    task: "Design and execute test strategy. Exploratory testing of edge cases, error paths, and integration points. Verify acceptance criteria. Identify risks that automated tests miss."
+    skills: [senior-qa]
+    input_from: [1, 4]
+    output: "Test report with pass/fail status, discovered issues, and residual risk assessment"
+
+  - step: 6
+    role: devops-sre
+    persona: kelsey-hightower
+    task: "Prepare deployment. Set up feature flag for progressive rollout. Verify monitoring and alerting for the new feature. Create rollback plan. Execute canary deployment."
+    skills: [devops]
+    input_from: [4, 5]
+    output: "Deployment plan with feature flag config, monitoring setup, and rollback procedure"
+
+convergence_cycles: 2
+convergence_description: "After initial implementation, cycle through QA-Developer-DevOps to fix discovered issues and verify deployment readiness."
+
+trigger: "When a well-defined feature needs to be designed, built, tested, and deployed"
+
+final_output: "Deployed feature with PRD, interaction spec, technical design, implementation, test results, and deployment documentation."

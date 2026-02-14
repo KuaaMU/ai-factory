@@ -1,0 +1,47 @@
+id: web-scraping
+name: "Web Scraping & Data Collection"
+category: research
+description: "Systematic web data extraction pipeline supporting structured and unstructured sources. Handles pagination, rate limiting, and data normalization for competitive intelligence, pricing, and market data."
+
+capabilities:
+  - "Structured data extraction from websites, APIs, and feeds"
+  - "Handling pagination, infinite scroll, and dynamic content"
+  - "Rate limiting and respectful crawling with robots.txt compliance"
+  - "Data normalization and schema mapping across heterogeneous sources"
+  - "Price monitoring and change detection across competitor sites"
+  - "Social media and forum data collection for sentiment analysis"
+
+use_cases:
+  - "Competitor pricing and feature matrix extraction"
+  - "Job posting analysis to understand competitor hiring and strategy"
+  - "Review and rating aggregation from multiple platforms"
+  - "Market data collection for sizing and trend analysis"
+  - "Lead list building from public directories and databases"
+  - "Content gap analysis by scraping competitor blogs and documentation"
+
+process:
+  - stage: 1
+    name: "Source Identification"
+    description: "Identify target URLs, APIs, and data sources. Check robots.txt and ToS."
+  - stage: 2
+    name: "Schema Design"
+    description: "Define the output data schema. Map source fields to target schema."
+  - stage: 3
+    name: "Extraction Logic"
+    description: "Build extraction rules: CSS selectors, XPath, API endpoints, regex patterns."
+  - stage: 4
+    name: "Collection"
+    description: "Execute collection with rate limiting, retry logic, and error handling."
+  - stage: 5
+    name: "Normalization"
+    description: "Clean, deduplicate, and normalize collected data into the target schema."
+  - stage: 6
+    name: "Validation"
+    description: "Verify data completeness and accuracy. Flag anomalies and gaps."
+
+output_format: "Structured data in CSV, JSON, or YAML format with metadata (source URL, collection timestamp, confidence score)."
+
+recommended_for:
+  - research-analyst
+  - sales-lead
+  - cmo

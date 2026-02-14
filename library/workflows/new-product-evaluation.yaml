@@ -1,0 +1,58 @@
+id: new-product-evaluation
+name: "New Product Evaluation"
+description: "End-to-end evaluation of a new product idea. Starts with deep research, runs through strategic review, critical analysis, product design, technical feasibility, and financial viability."
+
+chain:
+  - step: 1
+    role: research-analyst
+    persona: ben-thompson
+    task: "Conduct deep market research on the product idea. Analyze market size, competitive landscape, value chain dynamics, and timing. Identify whether this is an aggregation, platform, or pipeline opportunity."
+    skills: [deep-research, competitive-intelligence, market-sizing]
+    output: "Market research report with TAM/SAM/SOM, competitive matrix, and strategic opportunity assessment"
+
+  - step: 2
+    role: ceo
+    persona: jeff-bezos
+    task: "Review the research and evaluate the product idea using PR/FAQ methodology. Write a draft press release for the product. Apply flywheel thinking: what virtuous cycle does this create? Apply regret minimization: will we regret not building this?"
+    skills: [product-strategist, market-sizing]
+    input_from: [1]
+    output: "PR/FAQ document with strategic recommendation (proceed/modify/reject)"
+
+  - step: 3
+    role: critic
+    persona: charlie-munger
+    task: "Conduct a pre-mortem on the product idea. Invert: how would this definitely fail? Identify cognitive biases in the team's enthusiasm. Check incentive alignment. Score top risks by probability and impact."
+    skills: [premortem, competitive-intelligence]
+    input_from: [1, 2]
+    output: "Pre-mortem report with risk matrix, kill criteria, and bias assessment"
+
+  - step: 4
+    role: product-designer
+    persona: don-norman
+    task: "Design the core user experience. Who is the primary persona? What is their goal? Map the critical user journey. Identify where users will struggle. Propose the minimum viable experience."
+    skills: [product-strategist]
+    input_from: [1, 2]
+    output: "User experience brief with primary persona, goal map, and critical flow design"
+
+  - step: 5
+    role: cto
+    persona: werner-vogels
+    task: "Evaluate technical feasibility and architecture. What are the core technical challenges? What is the simplest architecture that could work? Identify build vs buy decisions. Estimate infrastructure costs at 1x, 10x, 100x scale."
+    skills: [devops, security-audit]
+    input_from: [4]
+    output: "Technical feasibility assessment with architecture proposal and cost estimates"
+
+  - step: 6
+    role: cfo
+    persona: patrick-campbell
+    task: "Build the financial model. Estimate unit economics (CAC, LTV, margins). Model three scenarios (base, upside, downside). Determine pricing strategy based on value delivered. Calculate runway requirements and path to profitability."
+    skills: [financial-unit-economics, pricing-strategy, startup-financial-modeling]
+    input_from: [1, 5]
+    output: "Financial model with unit economics, pricing recommendation, and scenario projections"
+
+convergence_cycles: 3
+convergence_description: "After the initial chain, cycle through CEO-Critic-CTO for up to 3 rounds to resolve open questions, address critical risks, and converge on a final go/no-go recommendation."
+
+trigger: "When a new product idea needs comprehensive evaluation before committing resources"
+
+final_output: "Comprehensive product evaluation dossier with market research, strategic analysis, risk assessment, user experience design, technical architecture, and financial model. Includes a clear go/no-go recommendation with conditions."

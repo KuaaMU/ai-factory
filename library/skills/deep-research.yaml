@@ -1,0 +1,54 @@
+id: deep-research
+name: "Deep Research"
+category: research
+description: "8-stage deep research pipeline with parallel search, source triangulation, and citation verification. Produces structured reports ranging from executive summaries to comprehensive analyses."
+
+capabilities:
+  - "Multi-source parallel web search across academic, industry, and news sources"
+  - "Citation verification and cross-referencing against primary sources"
+  - "Evidence quality assessment using the GRADE framework (high/moderate/low/very low)"
+  - "Report generation in configurable depth (2K-50K+ words)"
+  - "Source credibility scoring based on authority, recency, and methodology"
+  - "Structured synthesis with executive summary, findings, and recommendations"
+
+use_cases:
+  - "Market research for new product ideas or market entry"
+  - "Competitive landscape analysis with feature and pricing comparison"
+  - "Technology evaluation and comparison for build/buy decisions"
+  - "User demand validation through search volume, forum analysis, and trend data"
+  - "Regulatory and compliance research for new markets"
+  - "Academic and industry literature review on specific topics"
+
+process:
+  - stage: 1
+    name: "Query Decomposition"
+    description: "Break the research question into 5-10 sub-questions that cover the full scope"
+  - stage: 2
+    name: "Parallel Search"
+    description: "Execute parallel searches across multiple source types (web, academic, social, forums)"
+  - stage: 3
+    name: "Source Screening"
+    description: "Filter sources by credibility, recency, and relevance. Score each source."
+  - stage: 4
+    name: "Evidence Extraction"
+    description: "Extract key claims, data points, and quotes from each source"
+  - stage: 5
+    name: "Cross-Referencing"
+    description: "Verify claims across multiple independent sources. Flag unverifiable claims."
+  - stage: 6
+    name: "Synthesis"
+    description: "Organize findings into themes. Identify consensus, disagreements, and gaps."
+  - stage: 7
+    name: "Quality Assessment"
+    description: "Apply GRADE framework to assess overall evidence quality for each finding"
+  - stage: 8
+    name: "Report Generation"
+    description: "Produce structured report with executive summary, detailed findings, citations, and recommendations"
+
+output_format: "Structured markdown report with executive summary, methodology, detailed findings with inline citations, source quality assessment, limitations, and actionable recommendations."
+
+recommended_for:
+  - research-analyst
+  - ceo
+  - operations
+  - cmo

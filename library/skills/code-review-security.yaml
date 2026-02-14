@@ -1,0 +1,49 @@
+id: code-review-security
+name: "Code Review & Security"
+category: engineering
+description: "Comprehensive code review combining functional correctness, security vulnerability detection, and engineering best practices. Covers OWASP Top 10, dependency auditing, and architectural concerns."
+
+capabilities:
+  - "Line-by-line code review for correctness, readability, and maintainability"
+  - "OWASP Top 10 vulnerability detection (injection, XSS, CSRF, auth flaws)"
+  - "Dependency vulnerability scanning and supply chain risk assessment"
+  - "Secret detection (API keys, passwords, tokens in source code)"
+  - "Architectural review: coupling, cohesion, separation of concerns"
+  - "Performance anti-pattern detection (N+1 queries, memory leaks, blocking I/O)"
+
+use_cases:
+  - "Pre-merge code review for pull requests"
+  - "Security review before production deployment"
+  - "Onboarding review of third-party code or acquired codebases"
+  - "Periodic security audit of existing codebase"
+  - "Reviewing code changes after incident response"
+  - "Establishing coding standards and review checklists"
+
+review_checklist:
+  security:
+    - "No hardcoded secrets or credentials"
+    - "Input validation on all external data boundaries"
+    - "Parameterized queries (no string concatenation for SQL)"
+    - "Output encoding for XSS prevention"
+    - "Authentication and authorization checks on all protected routes"
+    - "CSRF tokens on state-changing operations"
+    - "Rate limiting on authentication and API endpoints"
+    - "Error messages do not leak internal details"
+  correctness:
+    - "Edge cases handled (null, empty, boundary values)"
+    - "Error handling is comprehensive and explicit"
+    - "Race conditions addressed in concurrent code"
+    - "Resource cleanup (connections, file handles, memory)"
+  quality:
+    - "Functions are small and single-purpose"
+    - "Naming is clear and consistent"
+    - "No unnecessary complexity or premature abstraction"
+    - "Tests cover the changes"
+
+output_format: "Structured review report with severity levels (CRITICAL/HIGH/MEDIUM/LOW), specific line references, and suggested fixes."
+
+recommended_for:
+  - lead-developer
+  - cto
+  - qa-lead
+  - devops-sre

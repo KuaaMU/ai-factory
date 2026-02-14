@@ -1,0 +1,55 @@
+id: competitive-intelligence
+name: "Competitive Intelligence"
+category: research
+description: "Systematic competitive analysis covering product features, pricing, positioning, go-to-market strategy, technology stack, and organizational signals. Produces actionable intelligence for strategic decision-making."
+
+capabilities:
+  - "Feature-by-feature competitive comparison matrix"
+  - "Pricing and packaging reverse engineering"
+  - "Go-to-market strategy analysis (channels, messaging, partnerships)"
+  - "Technology stack identification from job postings, code, and public artifacts"
+  - "Organizational signal analysis (hiring patterns, funding, leadership changes)"
+  - "Competitive positioning map and differentiation opportunities"
+
+use_cases:
+  - "Entering a new market with established competitors"
+  - "Responding to a competitor's product launch or pricing change"
+  - "Identifying competitive blind spots and differentiation opportunities"
+  - "Preparing competitive battlecards for sales teams"
+  - "Strategic planning: understanding competitive landscape trends"
+  - "M&A target evaluation and competitive threat assessment"
+
+intelligence_sources:
+  public:
+    - "Product websites, documentation, and changelogs"
+    - "Pricing pages and feature comparison tools"
+    - "Press releases, blog posts, and case studies"
+    - "App store reviews and ratings"
+    - "Job postings (reveal strategy, technology, and growth areas)"
+    - "Patent filings and trademark applications"
+  community:
+    - "G2, Capterra, TrustRadius reviews"
+    - "Reddit, Hacker News, Twitter discussions"
+    - "Industry forums and Slack communities"
+    - "Conference talks and podcast appearances"
+  financial:
+    - "SEC filings (public companies)"
+    - "Crunchbase funding data"
+    - "Revenue estimates from industry analysts"
+
+analysis_framework:
+  dimensions:
+    - "Product: features, UX, technology, roadmap signals"
+    - "Price: model, tiers, discounting, value metric"
+    - "Position: messaging, target audience, brand perception"
+    - "Promotion: channels, content strategy, partnerships"
+    - "People: team size, key hires, leadership background"
+    - "Performance: growth signals, market share, customer satisfaction"
+
+output_format: "Competitive intelligence report with comparison matrices, positioning maps, SWOT analysis, strategic recommendations, and competitive battlecard templates."
+
+recommended_for:
+  - research-analyst
+  - ceo
+  - cmo
+  - sales-lead

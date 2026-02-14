@@ -1,0 +1,37 @@
+# {{ skill.name }}
+
+{{ skill.description | default('No description provided.', true) }}
+
+## Capabilities
+{% if skill.capabilities %}
+{% for cap in skill.capabilities %}
+- {{ cap }}
+{% endfor %}
+{% else %}
+
+Capabilities will be defined based on operational usage.
+{% endif %}
+
+## When to Use
+{% if skill.use_cases %}
+{% for use_case in skill.use_cases %}
+- {{ use_case }}
+{% endfor %}
+{% else %}
+
+Use when the skill's domain expertise is required.
+{% endif %}
+
+## Output Format
+
+{{ skill.output_format | default('Structured markdown with clear sections, findings, and actionable recommendations.', true) }}
+
+## Recommended For
+{% if skill.recommended_for %}
+{% for role in skill.recommended_for %}
+- {{ role }}
+{% endfor %}
+{% else %}
+
+Available to all team members.
+{% endif %}

@@ -1,0 +1,75 @@
+skills:
+  - id: deep-research
+    name: "Deep Research"
+    category: research
+    tags: [research, analysis, report, citations, evidence]
+
+  - id: web-scraping
+    name: "Web Scraping & Data Collection"
+    category: research
+    tags: [scraping, data-collection, parsing, automation]
+
+  - id: code-review-security
+    name: "Code Review & Security"
+    category: engineering
+    tags: [code-review, security, vulnerability, best-practices]
+
+  - id: devops
+    name: "DevOps & Infrastructure"
+    category: engineering
+    tags: [docker, kubernetes, ci-cd, cloudflare-workers, deployment]
+
+  - id: security-audit
+    name: "Security Audit"
+    category: engineering
+    tags: [security, audit, owasp, penetration-testing, compliance]
+
+  - id: senior-qa
+    name: "Senior QA & Test Strategy"
+    category: engineering
+    tags: [qa, testing, test-strategy, automation, exploratory]
+
+  - id: financial-unit-economics
+    name: "Financial Unit Economics"
+    category: business
+    tags: [unit-economics, cac, ltv, margins, saas-metrics]
+
+  - id: pricing-strategy
+    name: "Pricing Strategy"
+    category: business
+    tags: [pricing, packaging, willingness-to-pay, monetization]
+
+  - id: market-sizing
+    name: "Market Sizing & TAM Analysis"
+    category: research
+    tags: [tam, sam, som, market-research, sizing]
+
+  - id: premortem
+    name: "Pre-Mortem Analysis"
+    category: strategy
+    tags: [risk, pre-mortem, inversion, failure-analysis]
+
+  - id: product-strategist
+    name: "Product Strategy"
+    category: product
+    tags: [product, strategy, roadmap, prioritization, prd]
+
+  - id: seo-content-strategist
+    name: "SEO & Content Strategy"
+    category: marketing
+    tags: [seo, content, keywords, organic-growth, copywriting]
+
+  - id: competitive-intelligence
+    name: "Competitive Intelligence"
+    category: research
+    tags: [competitive-analysis, market-landscape, benchmarking]
+
+  - id: micro-saas-launcher
+    name: "Micro-SaaS Launcher"
+    category: business
+    tags: [micro-saas, mvp, launch, solo-founder, bootstrap]
+
+  - id: startup-financial-modeling
+    name: "Startup Financial Modeling"
+    category: business
+    tags: [financial-model, forecasting, runway, fundraising, projections]

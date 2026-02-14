@@ -1,0 +1,50 @@
+id: seo-content-strategist
+name: "SEO & Content Strategy"
+category: marketing
+description: "Data-driven SEO and content strategy combining keyword research, content gap analysis, topical authority mapping, and editorial calendar design. Optimized for organic growth and thought leadership."
+
+capabilities:
+  - "Keyword research with search volume, difficulty, and intent classification"
+  - "Content gap analysis against top-ranking competitors"
+  - "Topical authority mapping and content cluster design"
+  - "Editorial calendar creation with publishing cadence optimization"
+  - "On-page SEO optimization (title, meta, headers, internal linking)"
+  - "Content performance measurement and optimization recommendations"
+
+use_cases:
+  - "Building an organic growth strategy for a new product or blog"
+  - "Identifying high-value content opportunities with low competition"
+  - "Designing a content cluster strategy for topical authority"
+  - "Auditing existing content for SEO improvement opportunities"
+  - "Creating an editorial calendar aligned with business goals"
+  - "Competitive content analysis to identify differentiation angles"
+
+process:
+  - stage: 1
+    name: "Keyword Universe Research"
+    description: "Build comprehensive keyword list from seed keywords, competitor analysis, and question mining"
+  - stage: 2
+    name: "Intent Classification"
+    description: "Classify keywords by intent: informational, navigational, commercial, transactional"
+  - stage: 3
+    name: "Content Gap Analysis"
+    description: "Identify topics competitors rank for that you do not, and vice versa"
+  - stage: 4
+    name: "Topical Authority Mapping"
+    description: "Design content clusters: pillar pages with supporting cluster content, all interlinked"
+  - stage: 5
+    name: "Editorial Calendar"
+    description: "Prioritize content by opportunity score (volume x relevance x achievability). Schedule production."
+  - stage: 6
+    name: "Content Briefs"
+    description: "Create detailed briefs for each piece: target keyword, search intent, outline, word count, CTA"
+  - stage: 7
+    name: "Performance Tracking"
+    description: "Define KPIs (organic traffic, rankings, click-through rate, conversions) and review cadence"
+
+output_format: "Content strategy document with keyword matrix, content gap analysis, topical authority map, editorial calendar, and content brief templates."
+
+recommended_for:
+  - cmo
+  - research-analyst
+  - product-designer

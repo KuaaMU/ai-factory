@@ -1,0 +1,55 @@
+id: market-sizing
+name: "Market Sizing & TAM Analysis"
+category: research
+description: "Rigorous market sizing using top-down, bottom-up, and value-theory approaches. Produces TAM/SAM/SOM estimates with confidence intervals and methodology transparency."
+
+capabilities:
+  - "Top-down market sizing from industry reports and macroeconomic data"
+  - "Bottom-up market sizing from customer counts, pricing, and usage patterns"
+  - "Value-theory sizing based on the value created vs value captured"
+  - "TAM/SAM/SOM framework with clear filtering criteria"
+  - "Market growth rate estimation and trend projection"
+  - "Confidence interval calculation and assumption sensitivity analysis"
+
+use_cases:
+  - "Sizing the market for a new product idea"
+  - "Validating market opportunity for investor presentations"
+  - "Comparing multiple market opportunities for resource allocation"
+  - "Estimating addressable market for geographic expansion"
+  - "Evaluating market timing: is the market growing, mature, or declining?"
+  - "Identifying market segments with highest revenue potential"
+
+methodology:
+  top_down:
+    description: "Start from total industry size and narrow to addressable segment"
+    steps:
+      - "Find total industry revenue from analyst reports (Gartner, IDC, Statista)"
+      - "Apply geographic filters (countries/regions you can serve)"
+      - "Apply segment filters (company size, industry vertical)"
+      - "Apply product fit filters (what % could use your specific solution)"
+    limitations: "Relies on analyst accuracy; can overestimate by including non-applicable segments"
+
+  bottom_up:
+    description: "Count potential customers and multiply by expected revenue per customer"
+    steps:
+      - "Identify and count potential customers in target segment"
+      - "Estimate realistic adoption rate (usually 1-10% in early years)"
+      - "Multiply by average revenue per customer (ARPU)"
+      - "Project over time with growth rate assumptions"
+    limitations: "Sensitive to ARPU and adoption rate assumptions"
+
+  value_theory:
+    description: "Size market based on the total value your solution creates"
+    steps:
+      - "Quantify the problem cost (time, money, risk) for a typical customer"
+      - "Estimate what fraction of that value you can capture (typically 10-30%)"
+      - "Multiply by the number of potential customers"
+    limitations: "Difficult to quantify intangible value; requires deep customer understanding"
+
+output_format: "Market sizing report with TAM/SAM/SOM estimates, methodology explanation, key assumptions with sensitivity ranges, growth projections, and data sources."
+
+recommended_for:
+  - ceo
+  - research-analyst
+  - cfo
+  - operations

@@ -1,0 +1,48 @@
+id: security-audit
+name: "Security Audit"
+category: engineering
+description: "Comprehensive security assessment covering application security, infrastructure security, dependency analysis, and compliance posture. Based on OWASP, NIST, and CIS frameworks."
+
+capabilities:
+  - "OWASP Top 10 assessment for web applications"
+  - "Infrastructure security review (network, IAM, encryption, access control)"
+  - "Dependency vulnerability analysis and SCA (Software Composition Analysis)"
+  - "Authentication and authorization flow review"
+  - "Data protection assessment (encryption at rest and in transit, PII handling)"
+  - "Compliance gap analysis (SOC 2, GDPR, HIPAA, PCI-DSS)"
+
+use_cases:
+  - "Pre-launch security assessment for new products"
+  - "Periodic security audit of existing systems"
+  - "Compliance preparation (SOC 2 Type II, GDPR readiness)"
+  - "Post-incident security review and hardening"
+  - "Third-party integration security assessment"
+  - "Evaluating security posture before fundraising or acquisition"
+
+audit_areas:
+  application:
+    - "Input validation and output encoding"
+    - "Authentication mechanisms (password policy, MFA, session management)"
+    - "Authorization model (RBAC, ABAC, least privilege)"
+    - "API security (rate limiting, input validation, auth)"
+    - "File upload handling and content validation"
+    - "Error handling and information disclosure"
+  infrastructure:
+    - "Network segmentation and firewall rules"
+    - "IAM policies and access management"
+    - "Encryption configuration (TLS versions, cipher suites)"
+    - "Secrets management (rotation, access, storage)"
+    - "Logging and audit trail completeness"
+    - "Backup and disaster recovery"
+  supply_chain:
+    - "Dependency vulnerability scanning"
+    - "License compliance review"
+    - "Build pipeline integrity"
+    - "Container image provenance"
+
+output_format: "Security audit report with risk ratings (Critical/High/Medium/Low), specific findings with evidence, remediation recommendations prioritized by risk, and compliance mapping."
+
+recommended_for:
+  - cto
+  - devops-sre
+  - lead-developer

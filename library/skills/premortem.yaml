@@ -1,0 +1,54 @@
+id: premortem
+name: "Pre-Mortem Analysis"
+category: strategy
+description: "Structured pre-mortem exercise that assumes the project has failed and works backward to identify the most likely causes. Combines Munger's inversion, prospective hindsight, and risk matrix prioritization."
+
+capabilities:
+  - "Facilitated pre-mortem brainstorming with structured inversion prompts"
+  - "Risk categorization across technical, market, team, financial, and regulatory dimensions"
+  - "Probability and impact scoring for each identified risk"
+  - "Mitigation strategy design for top risks"
+  - "Kill criteria definition: conditions under which the project should be abandoned"
+  - "Monitoring plan: leading indicators that signal risk materialization"
+
+use_cases:
+  - "Before committing resources to a new product or feature"
+  - "Before a major architectural decision or technology migration"
+  - "Before a product launch or market entry"
+  - "When the team is unanimously optimistic (groupthink detection)"
+  - "Before fundraising or major financial commitments"
+  - "Quarterly strategic review of ongoing initiatives"
+
+process:
+  - stage: 1
+    name: "Future Failure Assumption"
+    description: "Assume the project has failed spectacularly 12 months from now. Set the stage emotionally."
+  - stage: 2
+    name: "Individual Failure Ideation"
+    description: "Each participant independently lists 5-10 reasons why it failed. No discussion yet."
+  - stage: 3
+    name: "Aggregation and Clustering"
+    description: "Collect all failure reasons. Cluster into categories: technical, market, team, financial, regulatory, competitive."
+  - stage: 4
+    name: "Probability and Impact Scoring"
+    description: "Score each risk on probability (1-5) and impact (1-5). Calculate risk score = probability x impact."
+  - stage: 5
+    name: "Top Risk Deep Dive"
+    description: "For the top 5 risks by score, analyze root causes, early warning signs, and cascading effects."
+  - stage: 6
+    name: "Mitigation Design"
+    description: "For each top risk, design specific, actionable mitigation strategies with owners and deadlines."
+  - stage: 7
+    name: "Kill Criteria"
+    description: "Define 3-5 measurable conditions that would indicate the project should be stopped."
+  - stage: 8
+    name: "Monitoring Plan"
+    description: "Identify leading indicators for each top risk. Set up regular check-ins to review."
+
+output_format: "Pre-mortem report with categorized risks, risk matrix visualization, top risk deep dives, mitigation strategies with owners, kill criteria, and monitoring dashboard specification."
+
+recommended_for:
+  - critic
+  - ceo
+  - cto
+  - operations

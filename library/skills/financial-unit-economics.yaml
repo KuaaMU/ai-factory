@@ -1,0 +1,50 @@
+id: financial-unit-economics
+name: "Financial Unit Economics"
+category: business
+description: "Deep analysis of per-unit financial metrics that determine business viability. Covers customer acquisition cost, lifetime value, margins, payback period, and cohort-based retention analysis."
+
+capabilities:
+  - "CAC calculation: fully loaded customer acquisition cost by channel"
+  - "LTV modeling: cohort-based lifetime value with churn curves"
+  - "Gross margin analysis: COGS breakdown and margin optimization"
+  - "Payback period calculation and cash flow impact analysis"
+  - "Cohort analysis: retention, expansion, and contraction by customer segment"
+  - "Unit economics sensitivity analysis and scenario modeling"
+
+use_cases:
+  - "Evaluating whether a business model is fundamentally viable"
+  - "Comparing acquisition channels by efficiency (CAC by channel)"
+  - "Deciding whether to invest in growth or improve retention"
+  - "Preparing unit economics for investor pitch or board review"
+  - "Identifying which customer segments are profitable vs unprofitable"
+  - "Setting pricing to achieve target margin and payback period"
+
+metrics:
+  acquisition:
+    - name: "CAC (Customer Acquisition Cost)"
+      formula: "(Sales + Marketing Spend) / New Customers Acquired"
+      benchmark: "Varies by industry; SaaS B2B typically $200-$2,000"
+    - name: "CAC Payback Period"
+      formula: "CAC / (Monthly Revenue per Customer x Gross Margin)"
+      benchmark: "< 12 months for healthy SaaS"
+  retention:
+    - name: "Gross Revenue Retention"
+      formula: "(Beginning MRR - Churn MRR) / Beginning MRR"
+      benchmark: "> 85% for SMB SaaS, > 95% for enterprise SaaS"
+    - name: "Net Revenue Retention"
+      formula: "(Beginning MRR - Churn + Expansion) / Beginning MRR"
+      benchmark: "> 100% (ideally 110-130% for enterprise SaaS)"
+  profitability:
+    - name: "LTV (Lifetime Value)"
+      formula: "ARPU x Gross Margin / Churn Rate"
+      benchmark: "LTV/CAC ratio should be > 3:1"
+    - name: "Gross Margin"
+      formula: "(Revenue - COGS) / Revenue"
+      benchmark: "> 70% for software, > 50% for services"
+
+output_format: "Financial analysis with metric calculations, cohort tables, waterfall charts, sensitivity analysis, and specific recommendations for improvement."
+
+recommended_for:
+  - cfo
+  - ceo
+  - operations

@@ -1,0 +1,84 @@
+personas:
+  - id: jeff-bezos
+    name: "Jeff Bezos"
+    domain: "CEO / Strategic Leadership"
+    layer: strategy
+    tags: [ceo, strategy, product-vision, flywheel, day-one, customer-obsession]
+
+  - id: werner-vogels
+    name: "Werner Vogels"
+    domain: "CTO / Technical Architecture"
+    layer: strategy
+    tags: [cto, architecture, api-first, distributed-systems, cloud, resilience]
+
+  - id: charlie-munger
+    name: "Charlie Munger"
+    domain: "Critic / Strategic Inversion"
+    layer: strategy
+    tags: [critic, inversion, pre-mortem, mental-models, risk-assessment]
+
+  - id: don-norman
+    name: "Don Norman"
+    domain: "Product Design / UX"
+    layer: product
+    tags: [product-design, ux, affordance, mental-models, human-centered-design]
+
+  - id: matias-duarte
+    name: "Matias Duarte"
+    domain: "UI Design / Visual Systems"
+    layer: product
+    tags: [ui-design, material-design, typography, animation, visual-hierarchy]
+
+  - id: alan-cooper
+    name: "Alan Cooper"
+    domain: "Interaction Design"
+    layer: product
+    tags: [interaction-design, personas, goal-directed, user-research, behavior-patterns]
+
+  - id: dhh
+    name: "David Heinemeier Hansson"
+    domain: "Full-Stack Development"
+    layer: engineering
+    tags: [full-stack, ruby-on-rails, convention-over-config, monolith, programmer-happiness]
+
+  - id: james-bach
+    name: "James Bach"
+    domain: "QA / Exploratory Testing"
+    layer: engineering
+    tags: [qa, exploratory-testing, rapid-testing, test-strategy, critical-thinking]
+
+  - id: kelsey-hightower
+    name: "Kelsey Hightower"
+    domain: "DevOps / SRE / Infrastructure"
+    layer: engineering
+    tags: [devops, sre, kubernetes, automation, serverless, infrastructure]
+
+  - id: seth-godin
+    name: "Seth Godin"
+    domain: "Marketing / Growth"
+    layer: business
+    tags: [marketing, growth, purple-cow, permission-marketing, storytelling]
+
+  - id: paul-graham
+    name: "Paul Graham"
+    domain: "Operations / Startup Strategy"
+    layer: business
+    tags: [startups, operations, essays, yc, founder-mentality, simplicity]
+
+  - id: aaron-ross
+    name: "Aaron Ross"
+    domain: "Sales / Revenue Systems"
+    layer: business
+    tags: [sales, predictable-revenue, outbound, pipeline, funnel-systems]
+
+  - id: patrick-campbell
+    name: "Patrick Campbell"
+    domain: "CFO / Pricing & Unit Economics"
+    layer: business
+    tags: [cfo, pricing, unit-economics, saas-metrics, retention, monetization]
+
+  - id: ben-thompson
+    name: "Ben Thompson"
+    domain: "Research Analyst / Market Intelligence"
+    layer: intelligence
+    tags: [research, analysis, aggregation-theory, value-chain, tech-strategy]

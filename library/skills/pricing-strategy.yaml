@@ -1,0 +1,56 @@
+id: pricing-strategy
+name: "Pricing Strategy"
+category: business
+description: "Systematic approach to pricing products and services based on willingness-to-pay research, value metrics, competitive positioning, and packaging optimization. Covers freemium, tiered, usage-based, and hybrid models."
+
+capabilities:
+  - "Willingness-to-pay analysis using Van Westendorp and Gabor-Granger methods"
+  - "Value metric identification (what unit should pricing be based on)"
+  - "Tier design and feature packaging optimization"
+  - "Competitive pricing analysis and positioning"
+  - "Freemium vs free trial vs paid-only model evaluation"
+  - "Price sensitivity testing and elasticity estimation"
+
+use_cases:
+  - "Setting initial pricing for a new product launch"
+  - "Optimizing existing pricing to increase revenue or conversion"
+  - "Designing freemium conversion funnel"
+  - "Evaluating pricing model change (flat to usage-based)"
+  - "Competitive response when a rival changes pricing"
+  - "International pricing and purchasing power parity adjustments"
+
+frameworks:
+  van_westendorp:
+    description: "Four-question survey to find acceptable price range"
+    questions:
+      - "At what price would this be too expensive to consider?"
+      - "At what price would this be so cheap you'd question quality?"
+      - "At what price would this start to feel expensive but still worth it?"
+      - "At what price would this be a great deal?"
+    output: "Optimal price point, acceptable range, and stress points"
+
+  value_metric_selection:
+    criteria:
+      - "Aligns with the value customers receive"
+      - "Grows as the customer grows (expansion revenue)"
+      - "Easy for the customer to understand and predict"
+      - "Easy to measure and enforce technically"
+    examples:
+      - "Per seat (Slack, Figma)"
+      - "Per usage (AWS, Twilio)"
+      - "Per feature tier (most B2B SaaS)"
+      - "Per outcome (performance marketing tools)"
+
+  packaging_principles:
+    - "Good/Better/Best: 3 tiers that serve distinct segments"
+    - "80% of revenue should come from the middle tier"
+    - "Each tier upgrade should feel like a clear step up in value"
+    - "Free tier must be genuinely useful but limited in a natural way"
+
+output_format: "Pricing recommendation with value metric analysis, tier structure, pricing points with confidence ranges, competitive positioning map, and implementation roadmap."
+
+recommended_for:
+  - cfo
+  - ceo
+  - cmo
+  - operations

@@ -1,0 +1,75 @@
+id: micro-saas-launcher
+name: "Micro-SaaS Launcher"
+category: business
+description: "End-to-end playbook for launching a micro-SaaS product as a solo founder or tiny team. Covers idea validation, MVP scoping, tech stack selection, launch strategy, and early monetization."
+
+capabilities:
+  - "Idea validation through demand signals (search volume, forum activity, competitor gaps)"
+  - "MVP scope definition: identifying the minimum feature set for paying customers"
+  - "Tech stack selection optimized for solo developer speed and maintenance"
+  - "Pricing and monetization strategy for micro-SaaS (subscription, usage, lifetime deals)"
+  - "Launch channel strategy (Product Hunt, Hacker News, niche communities, AppSumo)"
+  - "Post-launch iteration framework based on user feedback and usage data"
+
+use_cases:
+  - "Validating a micro-SaaS idea before building"
+  - "Scoping an MVP that can launch in 4-8 weeks"
+  - "Choosing the right tech stack for a one-person team"
+  - "Planning a launch strategy to get first 100 paying customers"
+  - "Deciding between bootstrapping and seeking investment"
+  - "Transitioning from side project to sustainable business"
+
+playbook:
+  phase_1_validate:
+    name: "Validate (Week 1-2)"
+    steps:
+      - "Search volume analysis for the problem/solution"
+      - "Competitor landscape: who else solves this, and where are gaps?"
+      - "Community validation: 10+ conversations with potential users"
+      - "Landing page test with email capture (target: 5%+ conversion)"
+      - "Define success criteria: what metrics prove this is worth building?"
+
+  phase_2_build:
+    name: "Build MVP (Week 3-6)"
+    steps:
+      - "Ruthless scope: what is the ONE thing that delivers value?"
+      - "Tech stack: optimize for speed (Next.js, Supabase, Stripe, Vercel)"
+      - "Build core feature, authentication, and billing. Nothing else."
+      - "Dogfood: use it yourself daily"
+      - "Invite 5-10 beta users for feedback"
+
+  phase_3_launch:
+    name: "Launch (Week 7-8)"
+    steps:
+      - "Product Hunt launch with proper preparation (hunter, assets, team)"
+      - "Hacker News Show HN post"
+      - "Target niche communities (subreddits, Slack groups, Discord servers)"
+      - "Direct outreach to 50 potential users from validation phase"
+      - "Offer founding member pricing (50% off annual, limited to first 50 customers)"
+
+  phase_4_grow:
+    name: "Iterate (Week 9+)"
+    steps:
+      - "Track key metrics: MRR, churn, NPS, feature usage"
+      - "Ship improvements weekly based on user feedback"
+      - "Build SEO content for organic discovery"
+      - "Reach ramen profitability as first milestone"
+      - "Decide: grow this or build next product?"
+
+recommended_tech_stacks:
+  - name: "Full-Stack JavaScript"
+    tools: "Next.js + Supabase + Stripe + Vercel"
+    best_for: "Web apps, dashboards, SaaS tools"
+  - name: "Python Rapid"
+    tools: "FastAPI + PostgreSQL + Stripe + Railway"
+    best_for: "API-first products, data tools, integrations"
+  - name: "No-Code Hybrid"
+    tools: "Bubble/Webflow + Make.com + Stripe"
+    best_for: "Non-technical founders, marketplace ideas"
+
+output_format: "Launch plan document with validation results, MVP scope, technical architecture, launch timeline, pricing strategy, and success metrics."
+
+recommended_for:
+  - operations
+  - ceo
+  - lead-developer

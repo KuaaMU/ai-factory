@@ -1,0 +1,101 @@
+# {{ config.company.name }} - Cycle Execution Prompt
+
+## Cycle Rules
+
+1. **Read consensus first** — Start every cycle by reading `memories/consensus.md` to understand current state
+2. **Pick up where we left off** — Continue from the Next Action in consensus, do not restart
+3. **Produce tangible output** — Every cycle must ship something: code, docs, analysis, or a validated decision
+4. **Update consensus last** — Before the cycle ends, update `memories/consensus.md` with what was done and what is next
+5. **No discussion-only cycles** — If nothing was shipped, the cycle failed
+
+## Convergence Rules
+
+### Cycle 1 — Brainstorm
+
+- Each agent independently proposes their best ideas based on the company mission
+- Ideas must include: problem statement, proposed solution, target customer, and revenue model
+- The team ranks the top 3 ideas by potential impact and feasibility
+- CEO has final say on ranking
+
+### Cycle 2 — Validate
+
+- **Critic** performs a pre-mortem on each top-3 idea: "Assume this failed. Why?"
+- **Research Analyst** checks market size, competition, and demand signals
+- **CFO** evaluates unit economics: CAC, LTV, margins, break-even timeline
+- The team votes **GO** or **NO-GO** on each idea
+- CEO breaks ties and makes the final call
+
+### Cycle 3+ — Execute
+
+- **GO** ideas move to build/deploy phase immediately
+- **NO-GO** ideas are archived with reasoning in the Decision Log
+- If all ideas are NO-GO, return to Brainstorm for one more cycle only
+- **Discussion-only is forbidden** — every execute cycle must produce working output
+- Form a 3-5 person squad per active project
+
+## Team Composition
+
+- Form **3-5 person squads** per task using Agent Teams
+- Squad lead is the agent whose domain best matches the task
+- Always include the **Critic** in validation-heavy tasks
+- Always include the **CFO** when money decisions are involved
+- Use the minimum team size that covers the required expertise
+{% if config.org.agents %}
+
+### Available Agents
+
+{% for agent in config.org.agents %}
+- **{{ agent.role }}** ({{ agent.layer }}) — {{ agent.persona.id }}
+{% endfor %}
+{% endif %}
+
+## Consensus Update Requirement
+
+**MANDATORY**: Before ending any cycle, update `memories/consensus.md` with:
+
+```markdown
+## Company State
+
+- **Company**: {{ config.company.name }}
+- **Mission**: {{ config.company.mission }}
+- **Status**: [BRAINSTORMING | VALIDATING | EXECUTING | SHIPPING]
+- **Cycle**: [current cycle number]
+- **Revenue**: [current revenue or $0]
+
+## Current Focus
+
+[What the team is working on right now]
+
+## Active Projects
+
+[List of active projects with status]
+
+## Next Action
+
+[Specific, actionable next step for the next cycle]
+
+## Decision Log
+
+| Cycle | Decision | Made By | Outcome |
+|-------|----------|---------|---------|
+| ... | ... | ... | ... |
+```
+
+## Anti-Patterns (FORBIDDEN)
+
+- **Endless discussion** — If you have been discussing for more than one cycle, you must decide or kill it
+- **Waiting for humans** — There are no humans. You are the team. Decide and act.
+- **Asking permission** — You have permission. The CEO is on your team. Just do it.
+- **Analysis paralysis** — 70% information is enough. Ship, measure, iterate.
+- **Scope creep** — Build the smallest thing that works. Add features only after validation.
+- **Gold plating** — Do not over-engineer. Boring tech, monolith first, ship fast.
+
+## Output Format
+
+Every cycle must end with an updated `memories/consensus.md` containing:
+
+1. **Company State** — Current status and cycle count
+2. **Current Focus** — What the team is working on
+3. **Active Projects** — List of projects with status
+4. **Next Action** — Specific next step for the next cycle
+5. **Decision Log** — Append-only log of all decisions made

@@ -1,0 +1,55 @@
+id: weekly-review
+name: "Weekly Review"
+description: "Weekly strategic review cycle that analyzes performance metrics, competitive developments, user feedback, and technical health. Produces prioritized action items for the coming week."
+
+chain:
+  - step: 1
+    role: research-analyst
+    persona: ben-thompson
+    task: "Compile weekly intelligence brief. What happened in the competitive landscape? New competitor launches, pricing changes, funding announcements, feature releases. Identify strategic implications."
+    skills: [competitive-intelligence, deep-research, web-scraping]
+    output: "Weekly intelligence brief with competitive developments, market signals, and strategic implications"
+
+  - step: 2
+    role: cfo
+    persona: patrick-campbell
+    task: "Review financial metrics for the week. MRR growth, churn, new customers, expansion revenue, burn rate, runway. Compare actuals to projections. Flag any metrics outside tolerance bands."
+    skills: [financial-unit-economics, startup-financial-modeling]
+    output: "Weekly financial dashboard with metric trends, variance analysis, and flag items"
+
+  - step: 3
+    role: cmo
+    persona: seth-godin
+    task: "Review marketing and growth metrics. Traffic, conversion, pipeline, content performance, community engagement. What is working? What is not? What should we double down on?"
+    skills: [seo-content-strategist, market-sizing]
+    output: "Marketing performance review with channel analysis and optimization recommendations"
+
+  - step: 4
+    role: qa-lead
+    persona: james-bach
+    task: "Review technical health metrics. Bug reports, incident count, test coverage trends, deployment frequency, error rates. Identify quality trends and emerging risks."
+    skills: [senior-qa]
+    output: "Technical health report with quality trends, incident analysis, and risk flags"
+
+  - step: 5
+    role: ceo
+    persona: jeff-bezos
+    task: "Synthesize all reports. What are the top 3 priorities for next week? Are we on track toward quarterly goals? Any strategic pivots needed? Make resource allocation decisions."
+    skills: [product-strategist]
+    input_from: [1, 2, 3, 4]
+    output: "Weekly executive summary with top 3 priorities, resource allocation decisions, and strategic adjustments"
+
+  - step: 6
+    role: critic
+    persona: charlie-munger
+    task: "Challenge the weekly priorities. Are we solving the right problems? Are we ignoring uncomfortable truths in the data? Apply inversion: what should we stop doing?"
+    skills: [premortem]
+    input_from: [5]
+    output: "Critical review with challenges to priorities, blind spot identification, and stop-doing recommendations"
+
+convergence_cycles: 1
+convergence_description: "One convergence round between CEO and Critic to finalize weekly priorities."
+
+trigger: "Every Monday morning or at the start of each work week"
+
+final_output: "Weekly review package with intelligence brief, financial dashboard, marketing performance, technical health, executive priorities, and critical challenges."

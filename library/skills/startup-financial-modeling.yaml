@@ -1,0 +1,69 @@
+id: startup-financial-modeling
+name: "Startup Financial Modeling"
+category: business
+description: "Bottom-up financial modeling for startups covering revenue projections, expense forecasting, cash flow analysis, runway calculation, and fundraising scenario planning. Produces investor-ready financial models."
+
+capabilities:
+  - "Bottom-up revenue modeling from user acquisition, conversion, and pricing assumptions"
+  - "Expense forecasting by category (headcount, infrastructure, marketing, G&A)"
+  - "Cash flow projection and runway calculation under multiple scenarios"
+  - "Fundraising scenario planning (round size, dilution, valuation)"
+  - "Break-even analysis and path-to-profitability modeling"
+  - "Sensitivity analysis on key assumptions (growth rate, churn, CAC)"
+
+use_cases:
+  - "Building a financial model for seed or Series A fundraising"
+  - "Calculating runway and determining when to raise capital"
+  - "Evaluating the financial impact of pricing changes"
+  - "Headcount planning: when to hire and at what cost"
+  - "Board reporting with actuals vs projections"
+  - "Scenario planning for growth, base, and downside cases"
+
+model_structure:
+  revenue:
+    inputs:
+      - "Monthly new user acquisition (by channel)"
+      - "Conversion rate (free to paid)"
+      - "Average revenue per user (ARPU)"
+      - "Monthly churn rate (by cohort)"
+      - "Expansion revenue rate"
+    outputs:
+      - "Monthly Recurring Revenue (MRR)"
+      - "Annual Recurring Revenue (ARR)"
+      - "Net new MRR (new + expansion - churn)"
+      - "Revenue by segment and cohort"
+
+  expenses:
+    categories:
+      - name: "Headcount"
+        detail: "Salary, benefits, taxes by role and hire date"
+      - name: "Infrastructure"
+        detail: "Hosting, tools, APIs scaled to usage"
+      - name: "Sales & Marketing"
+        detail: "CAC budget by channel, content, events"
+      - name: "General & Administrative"
+        detail: "Legal, accounting, insurance, office"
+      - name: "R&D / Contractors"
+        detail: "Outsourced development, design, research"
+
+  cash_flow:
+    outputs:
+      - "Monthly burn rate"
+      - "Runway in months"
+      - "Break-even month"
+      - "Cumulative cash position"
+
+  scenarios:
+    - name: "Base Case"
+      description: "Current trajectory with modest improvements"
+    - name: "Upside Case"
+      description: "Strong product-market fit, viral growth"
+    - name: "Downside Case"
+      description: "Slower growth, higher churn, delayed revenue"
+
+output_format: "Spreadsheet-ready financial model with monthly projections (24 months), annual summary (5 years), key assumptions dashboard, sensitivity tables, and fundraising scenario analysis."
+
+recommended_for:
+  - cfo
+  - ceo
+  - operations
