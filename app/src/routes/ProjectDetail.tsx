@@ -175,7 +175,15 @@ export function ProjectDetail() {
       {error && (
         <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>{error}</span>
+          <span className="flex-1">{error}</span>
+          {error.includes("not found") && (
+            <button
+              onClick={() => navigate("/settings")}
+              className="shrink-0 rounded-md border border-destructive/30 px-3 py-1 text-xs font-medium hover:bg-destructive/20"
+            >
+              {t("projectDetail.goToSettings")}
+            </button>
+          )}
         </div>
       )}
 
@@ -197,9 +205,6 @@ export function ProjectDetail() {
               {status?.is_running ? t("projectDetail.running") : t("projectDetail.stopped")}
             </p>
           </div>
-          {status?.pid && (
-            <p className="mt-1 text-xs text-muted-foreground">PID: {status.pid}</p>
-          )}
         </div>
         <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center gap-2 text-muted-foreground">

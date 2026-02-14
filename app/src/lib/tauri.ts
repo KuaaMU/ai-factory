@@ -12,6 +12,7 @@ import type {
   Project,
   AppSettings,
   AiProvider,
+  SystemInfo,
 } from "./types";
 
 // ===== Bootstrap Commands =====
@@ -39,7 +40,7 @@ export async function startLoop(
   projectDir: string,
   engine: string,
   model: string,
-): Promise<number> {
+): Promise<boolean> {
   return invoke("start_loop", { projectDir, engine, model });
 }
 
@@ -148,4 +149,21 @@ export async function removeProvider(providerId: string): Promise<AppSettings> {
 
 export async function testProvider(provider: AiProvider): Promise<boolean> {
   return invoke("test_provider", { provider });
+}
+
+// ===== System Commands =====
+
+export async function detectSystem(): Promise<SystemInfo> {
+  return invoke("detect_system");
+}
+
+export async function installTool(
+  toolName: string,
+  installDir?: string,
+): Promise<string> {
+  return invoke("install_tool", { toolName, installDir: installDir ?? null });
+}
+
+export async function checkEngine(engine: string): Promise<string> {
+  return invoke("check_engine", { engine });
 }

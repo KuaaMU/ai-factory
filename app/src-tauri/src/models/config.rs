@@ -306,3 +306,35 @@ pub struct LogEntry {
     pub agent: String,
     pub message: String,
 }
+
+// ===== System Environment =====
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemInfo {
+    pub os: String,
+    pub arch: String,
+    pub default_shell: String,
+    pub shells: Vec<ShellInfo>,
+    pub tools: Vec<ToolInfo>,
+    pub node_version: Option<String>,
+    pub npm_version: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShellInfo {
+    pub name: String,
+    pub path: Option<String>,
+    pub version: Option<String>,
+    pub available: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolInfo {
+    pub name: String,
+    pub display_name: String,
+    pub available: bool,
+    pub version: Option<String>,
+    pub path: Option<String>,
+    pub install_command: String,
+    pub install_url: String,
+}

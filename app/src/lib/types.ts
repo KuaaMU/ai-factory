@@ -206,3 +206,32 @@ export interface CommandResult<T> {
   readonly data: T | null;
   readonly error: string | null;
 }
+
+// ===== System Environment =====
+
+export interface SystemInfo {
+  readonly os: string;
+  readonly arch: string;
+  readonly default_shell: string;
+  readonly shells: readonly ShellInfo[];
+  readonly tools: readonly ToolInfo[];
+  readonly node_version: string | null;
+  readonly npm_version: string | null;
+}
+
+export interface ShellInfo {
+  readonly name: string;
+  readonly path: string | null;
+  readonly version: string | null;
+  readonly available: boolean;
+}
+
+export interface ToolInfo {
+  readonly name: string;
+  readonly display_name: string;
+  readonly available: boolean;
+  readonly version: string | null;
+  readonly path: string | null;
+  readonly install_command: string;
+  readonly install_url: string;
+}

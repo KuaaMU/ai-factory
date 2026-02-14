@@ -88,6 +88,7 @@ const en = {
   "projectDetail.waitingForLogs": "Waiting for log output... Start the loop to begin.",
   "projectDetail.deleteConfirm": "Delete this project? This cannot be undone.",
   "projectDetail.errors": "errors",
+  "projectDetail.goToSettings": "Go to Settings",
 
   // Library
   "library.title": "Library",
@@ -124,6 +125,32 @@ const en = {
   "settings.saveFailed": "Failed to save settings",
   "settings.language": "Language",
   "settings.languageLabel": "Interface Language",
+
+  // System Environment
+  "system.title": "System Environment",
+  "system.subtitle": "Detected system configuration and CLI tools",
+  "system.os": "Operating System",
+  "system.arch": "Architecture",
+  "system.shell": "Default Shell",
+  "system.nodeVersion": "Node.js",
+  "system.npmVersion": "npm",
+  "system.shells": "Shells",
+  "system.cliTools": "CLI Tools",
+  "system.available": "Available",
+  "system.notFound": "Not Found",
+  "system.version": "Version",
+  "system.path": "Path",
+  "system.install": "Install",
+  "system.installing": "Installing...",
+  "system.installSuccess": "Installed successfully",
+  "system.installFailed": "Installation failed",
+  "system.refresh": "Refresh",
+  "system.refreshing": "Detecting...",
+  "system.noNode": "Node.js is required to install CLI tools",
+  "system.installGuide": "Install Guide",
+  "system.engineCheck": "Engine Status",
+  "system.engineOk": "Engine found and ready",
+  "system.engineMissing": "Engine not found. Install it to start loops.",
 } as const;
 
 const zh: Record<keyof typeof en, string> = {
@@ -209,6 +236,7 @@ const zh: Record<keyof typeof en, string> = {
   "projectDetail.waitingForLogs": "\u7b49\u5f85\u65e5\u5fd7\u8f93\u51fa... \u542f\u52a8\u5faa\u73af\u4ee5\u5f00\u59cb\u3002",
   "projectDetail.deleteConfirm": "\u5220\u9664\u6b64\u9879\u76ee\uff1f\u6b64\u64cd\u4f5c\u4e0d\u53ef\u64a4\u9500\u3002",
   "projectDetail.errors": "\u4e2a\u9519\u8bef",
+  "projectDetail.goToSettings": "\u524d\u5f80\u8bbe\u7f6e",
 
   // Library
   "library.title": "\u8d44\u6e90\u5e93",
@@ -245,6 +273,32 @@ const zh: Record<keyof typeof en, string> = {
   "settings.saveFailed": "\u4fdd\u5b58\u8bbe\u7f6e\u5931\u8d25",
   "settings.language": "\u8bed\u8a00",
   "settings.languageLabel": "\u754c\u9762\u8bed\u8a00",
+
+  // System Environment
+  "system.title": "\u7cfb\u7edf\u73af\u5883",
+  "system.subtitle": "\u68c0\u6d4b\u5230\u7684\u7cfb\u7edf\u914d\u7f6e\u548c CLI \u5de5\u5177",
+  "system.os": "\u64cd\u4f5c\u7cfb\u7edf",
+  "system.arch": "\u67b6\u6784",
+  "system.shell": "\u9ed8\u8ba4 Shell",
+  "system.nodeVersion": "Node.js",
+  "system.npmVersion": "npm",
+  "system.shells": "Shell \u73af\u5883",
+  "system.cliTools": "CLI \u5de5\u5177",
+  "system.available": "\u53ef\u7528",
+  "system.notFound": "\u672a\u627e\u5230",
+  "system.version": "\u7248\u672c",
+  "system.path": "\u8def\u5f84",
+  "system.install": "\u5b89\u88c5",
+  "system.installing": "\u5b89\u88c5\u4e2d...",
+  "system.installSuccess": "\u5b89\u88c5\u6210\u529f",
+  "system.installFailed": "\u5b89\u88c5\u5931\u8d25",
+  "system.refresh": "\u5237\u65b0",
+  "system.refreshing": "\u68c0\u6d4b\u4e2d...",
+  "system.noNode": "\u9700\u8981 Node.js \u624d\u80fd\u5b89\u88c5 CLI \u5de5\u5177",
+  "system.installGuide": "\u5b89\u88c5\u6307\u5357",
+  "system.engineCheck": "\u5f15\u64ce\u72b6\u6001",
+  "system.engineOk": "\u5f15\u64ce\u5df2\u627e\u5230\uff0c\u5c31\u7eea",
+  "system.engineMissing": "\u672a\u627e\u5230\u5f15\u64ce\u3002\u8bf7\u5148\u5b89\u88c5\u624d\u80fd\u542f\u52a8\u5faa\u73af\u3002",
 };
 
 type TranslationKey = keyof typeof en;

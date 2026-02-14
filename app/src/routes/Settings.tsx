@@ -10,15 +10,24 @@ import {
   EyeOff,
   Loader2,
   Globe,
+  Monitor,
+  RefreshCw,
+  Download,
+  CheckCircle,
+  XCircle,
+  ExternalLink,
+  Terminal,
 } from "lucide-react";
 import {
   loadSettings,
   saveSettings as saveSettingsApi,
   addProvider,
   removeProvider,
+  detectSystem,
+  installTool,
 } from "@/lib/tauri";
 import { useI18n } from "@/lib/i18n";
-import type { AppSettings, AiProvider } from "@/lib/types";
+import type { AppSettings, AiProvider, ToolInfo } from "@/lib/types";
 
 const PROVIDER_PRESETS: Record<
   string,
@@ -45,6 +54,295 @@ const PROVIDER_PRESETS: Record<
     default_model: "",
   },
 };
+
+// ===== System Environment Panel =====
+
+function SystemEnvironmentPanel() {
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
+  const [installingTool, setInstallingTool] = useState<string | null>(null);
+  const [installResult, setInstallResult] = useState<{
+    tool: string;
+    success: boolean;
+    message: string;
+  } | null>(null);
+
+  const {
+    data: systemInfo,
+    isLoading,
+    isRefetching,
+  } = useQuery({
+    queryKey: ["system-info"],
+    queryFn: detectSystem,
+  });
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["system-info"] });
+  };
+
+  const handleInstall = async (tool: ToolInfo) => {
+    setInstallingTool(tool.name);
+    setInstallResult(null);
+    try {
+      const result = await installTool(tool.name);
+      setInstallResult({ tool: tool.name, success: true, message: result });
+      // Refresh system info after installation
+      queryClient.invalidateQueries({ queryKey: ["system-info"] });
+    } catch (err) {
+      setInstallResult({
+        tool: tool.name,
+        success: false,
+        message: String(err),
+      });
+    } finally {
+      setInstallingTool(null);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4 rounded-lg border bg-card p-6">
+        <div className="flex items-center gap-2">
+          <Monitor className="h-5 w-5 text-muted-foreground" />
+          <h2 className="font-semibold">{t("system.title")}</h2>
+        </div>
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <span className="ml-2 text-sm text-muted-foreground">
+            {t("system.refreshing")}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 rounded-lg border bg-card p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Monitor className="h-5 w-5 text-muted-foreground" />
+          <div>
+            <h2 className="font-semibold">{t("system.title")}</h2>
+            <p className="text-sm text-muted-foreground">
+              {t("system.subtitle")}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={isRefetching}
+          className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${isRefetching ? "animate-spin" : ""}`}
+          />
+          {t("system.refresh")}
+        </button>
+      </div>
+
+      {systemInfo && (
+        <>
+          {/* System Info Grid */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-md border p-3">
+              <p className="text-xs text-muted-foreground">{t("system.os")}</p>
+              <p className="font-medium capitalize">{systemInfo.os}</p>
+            </div>
+            <div className="rounded-md border p-3">
+              <p className="text-xs text-muted-foreground">
+                {t("system.arch")}
+              </p>
+              <p className="font-medium">{systemInfo.arch}</p>
+            </div>
+            <div className="rounded-md border p-3">
+              <p className="text-xs text-muted-foreground">
+                {t("system.nodeVersion")}
+              </p>
+              <p className="font-medium">
+                {systemInfo.node_version ?? (
+                  <span className="text-red-500">{t("system.notFound")}</span>
+                )}
+              </p>
+            </div>
+            <div className="rounded-md border p-3">
+              <p className="text-xs text-muted-foreground">
+                {t("system.npmVersion")}
+              </p>
+              <p className="font-medium">
+                {systemInfo.npm_version ?? (
+                  <span className="text-red-500">{t("system.notFound")}</span>
+                )}
+              </p>
+            </div>
+          </div>
+
+          {/* Shells */}
+          <div>
+            <div className="mb-2 flex items-center gap-2">
+              <Terminal className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-medium">{t("system.shells")}</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {systemInfo.shells.map((shell) => (
+                <div
+                  key={shell.name}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+                    shell.available
+                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                      : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                  }`}
+                >
+                  {shell.available ? (
+                    <CheckCircle className="h-3 w-3" />
+                  ) : (
+                    <XCircle className="h-3 w-3" />
+                  )}
+                  {shell.name}
+                  {shell.version && (
+                    <span className="opacity-70">
+                      {shell.version.slice(0, 20)}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* CLI Tools */}
+          <div>
+            <div className="mb-2 flex items-center gap-2">
+              <h3 className="text-sm font-medium">{t("system.cliTools")}</h3>
+            </div>
+            <div className="space-y-2">
+              {systemInfo.tools.map((tool) => (
+                <ToolRow
+                  key={tool.name}
+                  tool={tool}
+                  isInstalling={installingTool === tool.name}
+                  installResult={
+                    installResult?.tool === tool.name ? installResult : null
+                  }
+                  hasNpm={systemInfo.npm_version !== null}
+                  onInstall={() => handleInstall(tool)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Node.js warning */}
+          {!systemInfo.node_version && (
+            <div className="flex items-center gap-2 rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-200">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{t("system.noNode")}</span>
+              <a
+                href="https://nodejs.org/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-auto inline-flex items-center gap-1 font-medium underline"
+              >
+                nodejs.org
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function ToolRow({
+  tool,
+  isInstalling,
+  installResult,
+  hasNpm,
+  onInstall,
+}: {
+  readonly tool: ToolInfo;
+  readonly isInstalling: boolean;
+  readonly installResult: {
+    success: boolean;
+    message: string;
+  } | null;
+  readonly hasNpm: boolean;
+  readonly onInstall: () => void;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <div className="flex items-center gap-3 rounded-md border p-3">
+      <div
+        className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
+          tool.available
+            ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+            : "bg-gray-100 text-gray-400 dark:bg-gray-800"
+        }`}
+      >
+        {tool.available ? (
+          <CheckCircle className="h-4 w-4" />
+        ) : (
+          <XCircle className="h-4 w-4" />
+        )}
+      </div>
+      <div className="flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{tool.display_name}</span>
+          {tool.available && tool.version && (
+            <span className="rounded-full bg-secondary px-2 py-0.5 text-xs">
+              v{tool.version}
+            </span>
+          )}
+        </div>
+        {tool.available && tool.path && (
+          <p className="text-xs text-muted-foreground">{tool.path}</p>
+        )}
+        {!tool.available && (
+          <p className="text-xs text-muted-foreground">
+            {tool.install_command}
+          </p>
+        )}
+        {installResult && (
+          <p
+            className={`mt-1 text-xs ${installResult.success ? "text-green-600" : "text-red-500"}`}
+          >
+            {installResult.success
+              ? t("system.installSuccess")
+              : installResult.message}
+          </p>
+        )}
+      </div>
+      {!tool.available && (
+        <div className="flex items-center gap-2">
+          <a
+            href={tool.install_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-accent"
+          >
+            <ExternalLink className="h-3 w-3" />
+            {t("system.installGuide")}
+          </a>
+          {hasNpm && tool.install_command.startsWith("npm") && (
+            <button
+              onClick={onInstall}
+              disabled={isInstalling}
+              className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              {isInstalling ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Download className="h-3 w-3" />
+              )}
+              {isInstalling ? t("system.installing") : t("system.install")}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== Provider Card =====
 
 function ProviderCard({
   provider,
@@ -97,6 +395,8 @@ function ProviderCard({
     </div>
   );
 }
+
+// ===== Add Provider Form =====
 
 function AddProviderForm({
   onAdd,
@@ -174,7 +474,9 @@ function AddProviderForm({
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium">{t("settings.apiKey")}</label>
+        <label className="mb-1 block text-xs font-medium">
+          {t("settings.apiKey")}
+        </label>
         <input
           type="password"
           value={apiKey}
@@ -222,6 +524,8 @@ function AddProviderForm({
     </div>
   );
 }
+
+// ===== Main Settings Page =====
 
 export function Settings() {
   const queryClient = useQueryClient();
@@ -308,6 +612,9 @@ export function Settings() {
         <h1 className="text-2xl font-bold">{t("settings.title")}</h1>
         <p className="text-muted-foreground">{t("settings.subtitle")}</p>
       </div>
+
+      {/* System Environment - First section for visibility */}
+      <SystemEnvironmentPanel />
 
       {/* Language */}
       <div className="space-y-4 rounded-lg border bg-card p-6">
@@ -399,6 +706,7 @@ export function Settings() {
             >
               <option value="claude">Claude Code</option>
               <option value="codex">Codex CLI</option>
+              <option value="opencode">OpenCode</option>
             </select>
           </div>
 
