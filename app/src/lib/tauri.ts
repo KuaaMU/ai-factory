@@ -10,6 +10,8 @@ import type {
   SkillInfo,
   WorkflowInfo,
   Project,
+  AppSettings,
+  AiProvider,
 } from "./types";
 
 // ===== Bootstrap Commands =====
@@ -118,4 +120,32 @@ export async function saveConfig(
   path: string,
 ): Promise<boolean> {
   return invoke("save_config", { config, path });
+}
+
+// ===== Settings Commands =====
+
+export async function loadSettings(): Promise<AppSettings> {
+  return invoke("load_settings");
+}
+
+export async function saveSettings(settings: AppSettings): Promise<boolean> {
+  return invoke("save_settings", { settings });
+}
+
+export async function addProvider(provider: AiProvider): Promise<AppSettings> {
+  return invoke("add_provider", { provider });
+}
+
+export async function updateProvider(
+  provider: AiProvider,
+): Promise<AppSettings> {
+  return invoke("update_provider", { provider });
+}
+
+export async function removeProvider(providerId: string): Promise<AppSettings> {
+  return invoke("remove_provider", { providerId });
+}
+
+export async function testProvider(provider: AiProvider): Promise<boolean> {
+  return invoke("test_provider", { provider });
 }

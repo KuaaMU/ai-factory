@@ -7,9 +7,11 @@ import {
   ChevronLeft,
   Check,
   Loader2,
+  FolderOpen,
+  AlertCircle,
 } from "lucide-react";
-import { analyzeSeed, bootstrap, generate, listPersonas } from "@/lib/tauri";
-import type { SeedAnalysis, AgentLayer } from "@/lib/types";
+import { analyzeSeed, bootstrap, loadSettings, listPersonas } from "@/lib/tauri";
+import type { SeedAnalysis, AgentLayer, FactoryConfig } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const EXAMPLE_PROMPTS = [
@@ -35,6 +37,21 @@ const LAYER_COLORS: Record<AgentLayer, string> = {
   intelligence: "border-cyan-500 bg-cyan-50 dark:bg-cyan-950",
 };
 
+const ROLE_TO_LAYER: Record<string, AgentLayer> = {
+  ceo: "strategy",
+  critic: "strategy",
+  fullstack: "engineering",
+  devops: "engineering",
+  qa: "engineering",
+  product: "product",
+  ui: "product",
+  marketing: "business",
+  operations: "business",
+  sales: "business",
+  cfo: "business",
+  research: "intelligence",
+};
+
 export function NewProject() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
@@ -42,10 +59,17 @@ export function NewProject() {
   const [analysis, setAnalysis] = useState<SeedAnalysis | null>(null);
   const [selectedRoles, setSelectedRoles] = useState<readonly string[]>([]);
   const [outputDir, setOutputDir] = useState("");
+  const [generatedConfig, setGeneratedConfig] = useState<FactoryConfig | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const { data: personas } = useQuery({
     queryKey: ["personas"],
     queryFn: listPersonas,
+  });
+
+  const { data: settings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: loadSettings,
   });
 
   const analyzeMutation = useMutation({
@@ -53,23 +77,20 @@ export function NewProject() {
     onSuccess: (data) => {
       setAnalysis(data);
       setSelectedRoles(data.suggested_roles);
+      setError(null);
       setStep(1);
     },
+    onError: (err) => setError(String(err)),
   });
 
   const bootstrapMutation = useMutation({
     mutationFn: () => bootstrap(seedPrompt, outputDir),
-    onSuccess: () => {
+    onSuccess: (config) => {
+      setGeneratedConfig(config);
+      setError(null);
       setStep(4);
     },
-  });
-
-  const generateMutation = useMutation({
-    mutationFn: () =>
-      generate(outputDir ? `${outputDir}/company.yaml` : "company.yaml"),
-    onSuccess: () => {
-      navigate("/");
-    },
+    onError: (err) => setError(String(err)),
   });
 
   const toggleRole = useCallback(
@@ -82,6 +103,18 @@ export function NewProject() {
     },
     [],
   );
+
+  // Auto-populate output dir from settings
+  const handleConfigStep = () => {
+    if (!outputDir && settings?.projects_dir) {
+      const slug = seedPrompt
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .slice(0, 40);
+      setOutputDir(`${settings.projects_dir}/${slug}`);
+    }
+    setStep(3);
+  };
 
   const canProceed =
     step === 0
@@ -121,7 +154,7 @@ export function NewProject() {
             </div>
             <span
               className={cn(
-                "text-sm",
+                "hidden text-sm sm:inline",
                 i === step ? "font-medium" : "text-muted-foreground",
               )}
             >
@@ -133,6 +166,14 @@ export function NewProject() {
           </div>
         ))}
       </div>
+
+      {/* Error display */}
+      {error && (
+        <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
 
       {/* Step content */}
       <div className="rounded-lg border bg-card p-6">
@@ -149,7 +190,7 @@ export function NewProject() {
               rows={3}
             />
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">Examples:</p>
+              <p className="text-xs text-muted-foreground">Quick start:</p>
               <div className="flex flex-wrap gap-2">
                 {EXAMPLE_PROMPTS.map((prompt) => (
                   <button
@@ -217,26 +258,8 @@ export function NewProject() {
             <div className="grid gap-3 sm:grid-cols-2">
               {personas?.map((p) => {
                 const isSelected = selectedRoles.includes(p.role);
-                const layerColor =
-                  LAYER_COLORS[p.role as AgentLayer] ??
-                  LAYER_COLORS[
-                    (
-                      {
-                        ceo: "strategy",
-                        critic: "strategy",
-                        fullstack: "engineering",
-                        devops: "engineering",
-                        qa: "engineering",
-                        product: "product",
-                        ui: "product",
-                        marketing: "business",
-                        operations: "business",
-                        sales: "business",
-                        cfo: "business",
-                        research: "intelligence",
-                      } as Record<string, AgentLayer>
-                    )[p.role] ?? "business"
-                  ];
+                const layer = ROLE_TO_LAYER[p.role] ?? "business";
+                const layerColor = LAYER_COLORS[layer];
                 return (
                   <button
                     key={p.id}
@@ -272,7 +295,8 @@ export function NewProject() {
           <div className="space-y-4">
             <h3 className="font-medium">Configuration</h3>
             <div>
-              <label className="mb-1 block text-sm font-medium">
+              <label className="mb-1 flex items-center gap-2 text-sm font-medium">
+                <FolderOpen className="h-4 w-4" />
                 Output Directory
               </label>
               <input
@@ -282,21 +306,41 @@ export function NewProject() {
                 placeholder="F:/ai-factory/projects/my-company"
                 className="w-full rounded-md border bg-background px-4 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
+              <p className="mt-1 text-xs text-muted-foreground">
+                All project files (agents, consensus, scripts, logs) will be created here
+              </p>
             </div>
           </div>
         )}
 
         {step === 4 && (
           <div className="flex flex-col items-center gap-4 py-8">
-            {generateMutation.isPending ? (
+            {bootstrapMutation.isPending ? (
               <>
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p>Generating company files...</p>
+                <p className="font-medium">Creating your AI company...</p>
+                <p className="text-sm text-muted-foreground">
+                  Generating agents, scripts, consensus, and configuration files
+                </p>
               </>
-            ) : generateMutation.isSuccess ? (
+            ) : generatedConfig ? (
               <>
-                <Check className="h-12 w-12 text-green-500" />
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
+                  <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
+                </div>
                 <p className="font-medium">Company created successfully!</p>
+                <div className="text-center text-sm text-muted-foreground">
+                  <p>{generatedConfig.org.agents.length} agents configured</p>
+                  <p>{generatedConfig.workflows.length} workflows set up</p>
+                  <p>Output: {outputDir}</p>
+                </div>
+                <button
+                  onClick={() => navigate("/")}
+                  className="mt-2 inline-flex items-center gap-2 rounded-md bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  Go to Dashboard
+                  <ChevronRight className="h-4 w-4" />
+                </button>
               </>
             ) : (
               <>
@@ -305,13 +349,9 @@ export function NewProject() {
                   Ready to generate your AI company with{" "}
                   <strong>{selectedRoles.length} agents</strong>
                 </p>
-                <button
-                  onClick={() => generateMutation.mutate()}
-                  className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Generate
-                </button>
+                <p className="text-sm text-muted-foreground">
+                  This will create all project files in {outputDir}
+                </p>
               </>
             )}
           </div>
@@ -321,8 +361,11 @@ export function NewProject() {
       {/* Navigation */}
       <div className="flex justify-between">
         <button
-          onClick={() => setStep(Math.max(0, step - 1))}
-          disabled={step === 0}
+          onClick={() => {
+            setError(null);
+            setStep(Math.max(0, step - 1));
+          }}
+          disabled={step === 0 || bootstrapMutation.isPending}
           className="inline-flex items-center gap-1 rounded-md px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -331,8 +374,11 @@ export function NewProject() {
         {step < 4 && (
           <button
             onClick={() => {
+              setError(null);
               if (step === 0) {
                 analyzeMutation.mutate(seedPrompt);
+              } else if (step === 2) {
+                handleConfigStep();
               } else if (step === 3) {
                 bootstrapMutation.mutate();
               } else {
@@ -344,6 +390,11 @@ export function NewProject() {
           >
             {analyzeMutation.isPending || bootstrapMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
+            ) : step === 3 ? (
+              <>
+                <Sparkles className="h-4 w-4" />
+                Create Company
+              </>
             ) : (
               <>
                 Next

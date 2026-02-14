@@ -173,6 +173,31 @@ export interface GenerateResult {
   readonly workflow_count: number;
 }
 
+// ===== App Settings =====
+
+export interface AppSettings {
+  readonly default_engine: string;
+  readonly default_model: string;
+  readonly max_daily_budget: number;
+  readonly alert_at_budget: number;
+  readonly loop_interval: number;
+  readonly cycle_timeout: number;
+  readonly projects_dir: string;
+  readonly providers: readonly AiProvider[];
+}
+
+export interface AiProvider {
+  readonly id: string;
+  readonly name: string;
+  readonly provider_type: string;
+  readonly api_key: string;
+  readonly api_base_url: string;
+  readonly default_model: string;
+  readonly enabled: boolean;
+  readonly is_healthy: boolean;
+  readonly last_error: string | null;
+}
+
 // ===== Tauri Command Results =====
 
 export interface CommandResult<T> {

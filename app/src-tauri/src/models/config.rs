@@ -250,3 +250,40 @@ pub struct GenerateResult {
     pub skill_count: usize,
     pub workflow_count: usize,
 }
+
+// ===== App Settings =====
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppSettings {
+    pub default_engine: String,
+    pub default_model: String,
+    pub max_daily_budget: f64,
+    pub alert_at_budget: f64,
+    pub loop_interval: u32,
+    pub cycle_timeout: u32,
+    pub projects_dir: String,
+    pub providers: Vec<AiProvider>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AiProvider {
+    pub id: String,
+    pub name: String,
+    pub provider_type: String,
+    pub api_key: String,
+    pub api_base_url: String,
+    pub default_model: String,
+    pub enabled: bool,
+    pub is_healthy: bool,
+    pub last_error: Option<String>,
+}
+
+// ===== Log Event =====
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogEntry {
+    pub timestamp: String,
+    pub level: String,
+    pub agent: String,
+    pub message: String,
+}

@@ -22,6 +22,10 @@ pub fn bootstrap(prompt: String, output_dir: String) -> Result<FactoryConfig, St
     std::fs::write(dir.join("company.yaml"), &yaml)
         .map_err(|e| format!("Write error: {}", e))?;
 
+    // Auto-generate all project files immediately
+    let templates_dir = dir.join("templates");
+    engine::generator::generate_all(&config, &dir, &templates_dir)?;
+
     Ok(config)
 }
 
@@ -35,14 +39,7 @@ pub fn generate(config_path: String) -> Result<GenerateResult, String> {
 
     let fallback = PathBuf::from(".");
     let output_dir = path.parent().unwrap_or(&fallback);
-
-    // Use bundled templates or look for local templates
     let templates_dir = output_dir.join("templates");
-    if !templates_dir.exists() {
-        // Create minimal inline templates
-        std::fs::create_dir_all(&templates_dir)
-            .map_err(|e| format!("Failed to create templates dir: {}", e))?;
-    }
 
     engine::generator::generate_all(&config, output_dir, &templates_dir)
 }

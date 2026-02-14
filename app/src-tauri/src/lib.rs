@@ -6,6 +6,7 @@ use commands::bootstrap as bootstrap_cmd;
 use commands::memory as memory_cmd;
 use commands::runtime as runtime_cmd;
 use commands::library as library_cmd;
+use commands::settings as settings_cmd;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -37,6 +38,13 @@ pub fn run() {
             library_cmd::list_projects,
             library_cmd::get_project,
             library_cmd::delete_project,
+            // Settings commands
+            settings_cmd::load_settings,
+            settings_cmd::save_settings,
+            settings_cmd::add_provider,
+            settings_cmd::update_provider,
+            settings_cmd::remove_provider,
+            settings_cmd::test_provider,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
