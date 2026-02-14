@@ -3,12 +3,16 @@ node_modules/
 __pycache__/
 *.pyc
 *.egg-info/
+*.egg
+.eggs/
+
+# Build artifacts
 dist/
 build/
-
-# Tauri build
-app/src-tauri/target/
 app/dist/
+app/src-tauri/target/
+app/src-tauri/gen/
+*.tsbuildinfo
 
 # IDE
 .vscode/
@@ -20,19 +24,15 @@ app/dist/
 .DS_Store
 Thumbs.db
 
-# Environment
+# Environment / Secrets
 .env
 .env.local
 *.key
 *.pem
 
 # Runtime artifacts
-output/.loop.pid
-output/.loop.state
-output/.cycle_history.json
-output/logs/
+output/
+projects/
 
-# Python
-*.egg-info/
-*.egg
-.eggs/
+# Generated output (user projects)
+company.yaml

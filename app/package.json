@@ -1,7 +1,7 @@
 {
   "name": "ai-factory",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,18 +10,19 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.0.0",
-    "@tauri-apps/plugin-shell": "^2.0.0",
-    "@tauri-apps/plugin-fs": "^2.0.0",
-    "@tauri-apps/plugin-dialog": "^2.0.0",
     "@tanstack/react-query": "^5.0.0",
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
+    "@tauri-apps/plugin-fs": "^2.0.0",
+    "@tauri-apps/plugin-shell": "^2.0.0",
+    "@tauri-apps/plugin-updater": "^2.10.0",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.0",
+    "lucide-react": "^0.400.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-router-dom": "^6.20.0",
-    "lucide-react": "^0.400.0",
-    "clsx": "^2.1.0",
-    "tailwind-merge": "^2.2.0",
-    "class-variance-authority": "^0.7.0"
+    "tailwind-merge": "^2.2.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",

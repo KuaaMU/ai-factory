@@ -1,6 +1,6 @@
 {
   "productName": "AI Factory",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "com.aifactory.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -38,19 +38,13 @@
   },
   "plugins": {
     "shell": {
-      "open": true,
-      "scope": [
-        {
-          "name": "claude",
-          "cmd": "claude",
-          "args": true
-        },
-        {
-          "name": "codex",
-          "cmd": "codex",
-          "args": true
-        }
-      ]
+      "open": true
+    },
+    "updater": {
+      "endpoints": [
+        "https://github.com/KuaaMU/ai-factory/releases/latest/download/latest.json"
+      ],
+      "pubkey": ""
     }
   }
 }

@@ -17,6 +17,11 @@ import {
   XCircle,
   ExternalLink,
   Terminal,
+  Search,
+  Upload,
+  Sparkles,
+  Server,
+  Power,
 } from "lucide-react";
 import {
   loadSettings,
@@ -25,9 +30,16 @@ import {
   removeProvider,
   detectSystem,
   installTool,
+  detectProviders,
+  exportProviders,
+  importProviders,
+  listMcpServers,
+  addMcpServer,
+  removeMcpServer,
+  getMcpPresets,
 } from "@/lib/tauri";
 import { useI18n } from "@/lib/i18n";
-import type { AppSettings, AiProvider, ToolInfo } from "@/lib/types";
+import type { AppSettings, AiProvider, ToolInfo, DetectedProvider, McpServerConfig, McpPreset } from "@/lib/types";
 
 const PROVIDER_PRESETS: Record<
   string,
@@ -55,11 +67,288 @@ const PROVIDER_PRESETS: Record<
   },
 };
 
+// ===== MCP Servers Panel =====
+
+function McpPresetCard({
+  preset,
+  isAdded,
+  onAdd,
+}: {
+  readonly preset: McpPreset;
+  readonly isAdded: boolean;
+  readonly onAdd: () => void;
+}) {
+  const { t } = useI18n();
+
+  const categoryColor = (category: string) => {
+    switch (category) {
+      case "search":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+      case "database":
+        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+      case "cloud":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
+      case "dev":
+        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200";
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border bg-background p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium">{preset.name}</p>
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-medium ${categoryColor(preset.category)}`}
+            >
+              {preset.category}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {preset.description}
+          </p>
+        </div>
+        <button
+          onClick={onAdd}
+          disabled={isAdded}
+          className={`inline-flex shrink-0 items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${
+            isAdded
+              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+              : "bg-primary text-primary-foreground hover:bg-primary/90"
+          } disabled:opacity-70`}
+        >
+          {isAdded ? (
+            <>
+              <Check className="h-3 w-3" />
+              {t("settings.mcpAdded")}
+            </>
+          ) : (
+            <>
+              <Plus className="h-3 w-3" />
+              {t("common.add")}
+            </>
+          )}
+        </button>
+      </div>
+      {preset.env_keys.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {preset.env_keys.map((key) => (
+            <span
+              key={key}
+              className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
+            >
+              {key}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function McpServerRow({
+  server,
+  onRemove,
+  onToggle,
+}: {
+  readonly server: McpServerConfig;
+  readonly onRemove: (id: string) => void;
+  readonly onToggle: (id: string, enabled: boolean) => void;
+}) {
+  const typeColor = (serverType: string) => {
+    switch (serverType) {
+      case "stdio":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+      case "sse":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
+    }
+  };
+
+  const envEntries = Object.entries(server.env);
+
+  return (
+    <div className="space-y-2 rounded-md border p-4">
+      <div className="flex items-center gap-3">
+        <div
+          className={`h-3 w-3 rounded-full ${server.enabled ? "bg-green-500" : "bg-gray-400"}`}
+        />
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <p className="font-medium">{server.name}</p>
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-medium ${typeColor(server.server_type)}`}
+            >
+              {server.server_type}
+            </span>
+          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {server.command} {server.args.join(" ")}
+          </p>
+        </div>
+        <button
+          onClick={() => onToggle(server.id, !server.enabled)}
+          className={`rounded-md p-2 transition-colors ${
+            server.enabled
+              ? "text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
+              : "text-muted-foreground hover:bg-accent"
+          }`}
+          title={server.enabled ? "Disable" : "Enable"}
+        >
+          <Power className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => onRemove(server.id)}
+          className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+      {envEntries.length > 0 && (
+        <div className="ml-6 space-y-1">
+          {envEntries.map(([key, value]) => (
+            <div key={key} className="flex items-center gap-2 text-xs">
+              <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-muted-foreground">
+                {key}
+              </span>
+              <span className="truncate text-muted-foreground">
+                {value || "(not set)"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function McpServersPanel() {
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
+  const [addedPresetIds, setAddedPresetIds] = useState<Set<string>>(
+    new Set(),
+  );
+
+  const { data: mcpServers = [] } = useQuery({
+    queryKey: ["mcp-servers"],
+    queryFn: listMcpServers,
+  });
+
+  const { data: mcpPresets = [] } = useQuery({
+    queryKey: ["mcp-presets"],
+    queryFn: getMcpPresets,
+  });
+
+  const addServerMutation = useMutation({
+    mutationFn: (server: McpServerConfig) => addMcpServer(server),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mcp-servers"] });
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+    },
+  });
+
+  const removeServerMutation = useMutation({
+    mutationFn: (serverId: string) => removeMcpServer(serverId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mcp-servers"] });
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+    },
+  });
+
+  const handleAddPreset = (preset: McpPreset) => {
+    const envRecord: Record<string, string> = {};
+    for (const key of preset.env_keys) {
+      envRecord[key] = "";
+    }
+    const server: McpServerConfig = {
+      id: crypto.randomUUID(),
+      name: preset.name,
+      server_type: preset.server_type,
+      command: preset.command,
+      args: [...preset.args],
+      url: "",
+      env: envRecord,
+      enabled: true,
+      tools: [],
+    };
+    addServerMutation.mutate(server);
+    setAddedPresetIds((prev) => new Set([...prev, preset.id]));
+  };
+
+  const handleRemoveServer = (serverId: string) => {
+    removeServerMutation.mutate(serverId);
+  };
+
+  const handleToggleServer = (serverId: string, enabled: boolean) => {
+    const server = mcpServers.find((s) => s.id === serverId);
+    if (!server) return;
+    const updated: McpServerConfig = {
+      ...server,
+      enabled,
+    };
+    addServerMutation.mutate(updated);
+  };
+
+  return (
+    <div className="space-y-4 rounded-lg border bg-card p-6">
+      <div className="flex items-center gap-2">
+        <Server className="h-5 w-5 text-muted-foreground" />
+        <div>
+          <h2 className="font-semibold">{t("settings.mcpServers")}</h2>
+          <p className="text-sm text-muted-foreground">
+            {t("settings.mcpDesc")}
+          </p>
+        </div>
+      </div>
+
+      {/* Presets - Quick Add */}
+      {mcpPresets.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">{t("settings.mcpPresets")}</h3>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {mcpPresets.map((preset) => (
+              <McpPresetCard
+                key={preset.id}
+                preset={preset}
+                isAdded={addedPresetIds.has(preset.id)}
+                onAdd={() => handleAddPreset(preset)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Configured Servers */}
+      <div className="space-y-2">
+        <h3 className="text-sm font-medium">{t("settings.mcpConfigured")}</h3>
+        {mcpServers.length > 0 ? (
+          mcpServers.map((server) => (
+            <McpServerRow
+              key={server.id}
+              server={server}
+              onRemove={handleRemoveServer}
+              onToggle={handleToggleServer}
+            />
+          ))
+        ) : (
+          <div className="flex items-center gap-2 rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+            <AlertCircle className="h-4 w-4" />
+            {t("settings.mcpNoServers")}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ===== System Environment Panel =====
 
 function SystemEnvironmentPanel() {
   const { t } = useI18n();
-  const queryClient = useQueryClient();
   const [installingTool, setInstallingTool] = useState<string | null>(null);
   const [installResult, setInstallResult] = useState<{
     tool: string;
@@ -71,13 +360,16 @@ function SystemEnvironmentPanel() {
     data: systemInfo,
     isLoading,
     isRefetching,
+    refetch,
   } = useQuery({
     queryKey: ["system-info"],
     queryFn: detectSystem,
+    enabled: false,
+    staleTime: Infinity,
   });
 
   const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["system-info"] });
+    refetch();
   };
 
   const handleInstall = async (tool: ToolInfo) => {
@@ -87,7 +379,7 @@ function SystemEnvironmentPanel() {
       const result = await installTool(tool.name);
       setInstallResult({ tool: tool.name, success: true, message: result });
       // Refresh system info after installation
-      queryClient.invalidateQueries({ queryKey: ["system-info"] });
+      refetch();
     } catch (err) {
       setInstallResult({
         tool: tool.name,
@@ -99,7 +391,7 @@ function SystemEnvironmentPanel() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || isRefetching) {
     return (
       <div className="space-y-4 rounded-lg border bg-card p-6">
         <div className="flex items-center gap-2">
@@ -112,6 +404,34 @@ function SystemEnvironmentPanel() {
             {t("system.refreshing")}
           </span>
         </div>
+      </div>
+    );
+  }
+
+  if (!systemInfo) {
+    return (
+      <div className="space-y-4 rounded-lg border bg-card p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Monitor className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <h2 className="font-semibold">{t("system.title")}</h2>
+              <p className="text-sm text-muted-foreground">
+                {t("system.subtitle")}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleRefresh}
+            className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm hover:bg-accent"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            {t("system.refresh")}
+          </button>
+        </div>
+        <p className="py-4 text-center text-sm text-muted-foreground">
+          {t("system.clickRefresh")}
+        </p>
       </div>
     );
   }
@@ -336,6 +656,244 @@ function ToolRow({
               {isInstalling ? t("system.installing") : t("system.install")}
             </button>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== Quick Setup Panel =====
+
+function QuickSetupPanel({
+  onImport,
+  isImporting,
+}: {
+  readonly onImport: (provider: AiProvider) => void;
+  readonly isImporting: boolean;
+}) {
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
+  const [detected, setDetected] = useState<readonly DetectedProvider[]>([]);
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [hasDetected, setHasDetected] = useState(false);
+  const [importedKeys, setImportedKeys] = useState<Set<string>>(new Set());
+  const [showExportImport, setShowExportImport] = useState(false);
+  const [importJson, setImportJson] = useState("");
+
+  const handleDetect = async () => {
+    setIsDetecting(true);
+    try {
+      const result = await detectProviders();
+      setDetected(result);
+      setHasDetected(true);
+    } catch {
+      setDetected([]);
+      setHasDetected(true);
+    } finally {
+      setIsDetecting(false);
+    }
+  };
+
+  const handleImportOne = (dp: DetectedProvider) => {
+    const provider: AiProvider = {
+      id: `${dp.provider_type}-${Date.now()}`,
+      name: dp.suggested_name,
+      provider_type: dp.provider_type,
+      api_key: dp.api_key,
+      api_base_url: dp.api_base_url,
+      default_model: dp.suggested_model,
+      enabled: true,
+      is_healthy: true,
+      last_error: null,
+    };
+    onImport(provider);
+    setImportedKeys((prev) => new Set([...prev, dp.api_key]));
+  };
+
+  const handleImportAll = () => {
+    for (const dp of detected) {
+      if (!importedKeys.has(dp.api_key)) {
+        handleImportOne(dp);
+      }
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const json = await exportProviders([]);
+      // Copy to clipboard
+      await navigator.clipboard.writeText(json);
+    } catch {
+      // Fallback: show in text area
+    }
+  };
+
+  const handleImportJson = async () => {
+    if (!importJson.trim()) return;
+    try {
+      await importProviders(importJson);
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+      setImportJson("");
+      setShowExportImport(false);
+    } catch {
+      // Error handled by UI
+    }
+  };
+
+  const sourceIcon = (source: string) => {
+    if (source.startsWith("env:")) return "ENV";
+    if (source.includes("claude")) return "CC";
+    if (source.includes("codex")) return "CDX";
+    return "CFG";
+  };
+
+  const sourceColor = (source: string) => {
+    if (source.startsWith("env:"))
+      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+    if (source.includes("claude"))
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
+    if (source.includes("codex"))
+      return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+    return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+  };
+
+  return (
+    <div className="space-y-3 rounded-md border border-dashed border-primary/30 bg-primary/5 p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <div>
+            <p className="text-sm font-medium">{t("settings.quickSetup")}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("settings.quickSetupDesc")}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowExportImport((v) => !v)}
+            className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-accent"
+          >
+            <Upload className="h-3 w-3" />
+            {t("settings.importJson")}
+          </button>
+          <button
+            onClick={handleDetect}
+            disabled={isDetecting}
+            className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {isDetecting ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Search className="h-3 w-3" />
+            )}
+            {isDetecting
+              ? t("settings.detecting")
+              : t("settings.detectProviders")}
+          </button>
+        </div>
+      </div>
+
+      {/* Export / Import JSON area */}
+      {showExportImport && (
+        <div className="space-y-2 rounded-md border bg-background p-3">
+          <textarea
+            value={importJson}
+            onChange={(e) => setImportJson(e.target.value)}
+            placeholder='[{"id":"...", "name":"...", "provider_type":"...", "api_key":"...", ...}]'
+            className="h-24 w-full rounded-md border bg-background px-3 py-2 text-xs font-mono focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={handleImportJson}
+              disabled={!importJson.trim()}
+              className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              <Download className="h-3 w-3" />
+              {t("settings.importJson")}
+            </button>
+            <button
+              onClick={handleExport}
+              className="inline-flex items-center gap-1 rounded-md border px-3 py-1 text-xs hover:bg-accent"
+            >
+              <Upload className="h-3 w-3" />
+              {t("settings.exportProviders")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Detected Providers */}
+      {hasDetected && detected.length === 0 && (
+        <p className="py-2 text-center text-xs text-muted-foreground">
+          {t("settings.noDetected")}
+        </p>
+      )}
+
+      {detected.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-end">
+            <button
+              onClick={handleImportAll}
+              disabled={isImporting}
+              className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-accent"
+            >
+              <Plus className="h-3 w-3" />
+              {t("settings.importAll")}
+            </button>
+          </div>
+          {detected.map((dp, idx) => {
+            const isImported = importedKeys.has(dp.api_key);
+            return (
+              <div
+                key={`${dp.source}-${idx}`}
+                className="flex items-center gap-3 rounded-md border bg-background p-3"
+              >
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${sourceColor(dp.source)}`}
+                >
+                  {sourceIcon(dp.source)}
+                </span>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">{dp.suggested_name}</p>
+                    <span className="rounded-full bg-secondary px-2 py-0.5 text-xs">
+                      {dp.provider_type}
+                    </span>
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{dp.api_key_preview}</span>
+                    <span>|</span>
+                    <span>{dp.suggested_model}</span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-muted-foreground/70">
+                    {dp.source}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleImportOne(dp)}
+                  disabled={isImported || isImporting}
+                  className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${
+                    isImported
+                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                      : "bg-primary text-primary-foreground hover:bg-primary/90"
+                  } disabled:opacity-70`}
+                >
+                  {isImported ? (
+                    <>
+                      <Check className="h-3 w-3" />
+                      {t("settings.imported")}
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-3 w-3" />
+                      {t("settings.importProvider")}
+                    </>
+                  )}
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -594,6 +1152,7 @@ export function Settings() {
       projects_dir: projectsDir,
       providers: settings?.providers ?? [],
       language,
+      mcp_servers: settings?.mcp_servers ?? [],
     };
     saveMutation.mutate(updated);
   };
@@ -612,6 +1171,9 @@ export function Settings() {
         <h1 className="text-2xl font-bold">{t("settings.title")}</h1>
         <p className="text-muted-foreground">{t("settings.subtitle")}</p>
       </div>
+
+      {/* MCP Servers */}
+      <McpServersPanel />
 
       {/* System Environment - First section for visibility */}
       <SystemEnvironmentPanel />
@@ -663,6 +1225,12 @@ export function Settings() {
             {t("common.add")}
           </button>
         </div>
+
+        {/* Quick Setup - auto-detect providers */}
+        <QuickSetupPanel
+          onImport={(p) => addProviderMutation.mutate(p)}
+          isImporting={addProviderMutation.isPending}
+        />
 
         {showAddProvider && (
           <AddProviderForm

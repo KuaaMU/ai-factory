@@ -130,6 +130,9 @@ export interface PersonaInfo {
   readonly expertise: string;
   readonly mental_models: readonly string[];
   readonly core_capabilities: readonly string[];
+  readonly enabled: boolean;
+  readonly file_path: string | null;
+  readonly tags: readonly string[];
 }
 
 export interface SkillInfo {
@@ -137,8 +140,11 @@ export interface SkillInfo {
   readonly name: string;
   readonly category: string;
   readonly description: string;
-  readonly source: "auto-company" | "ecc" | "custom";
+  readonly source: "auto-company" | "ecc" | "real-skills" | "custom";
   readonly content_preview: string;
+  readonly enabled: boolean;
+  readonly file_path: string | null;
+  readonly tags: readonly string[];
 }
 
 export interface WorkflowInfo {
@@ -147,6 +153,9 @@ export interface WorkflowInfo {
   readonly description: string;
   readonly chain: readonly string[];
   readonly convergence_cycles: number;
+  readonly enabled: boolean;
+  readonly file_path: string | null;
+  readonly tags: readonly string[];
 }
 
 // ===== Project =====
@@ -173,6 +182,18 @@ export interface GenerateResult {
   readonly workflow_count: number;
 }
 
+// ===== Detected Provider (auto-detection) =====
+
+export interface DetectedProvider {
+  readonly source: string;
+  readonly provider_type: string;
+  readonly api_key_preview: string;
+  readonly api_key: string;
+  readonly api_base_url: string;
+  readonly suggested_name: string;
+  readonly suggested_model: string;
+}
+
 // ===== App Settings =====
 
 export interface AppSettings {
@@ -185,6 +206,7 @@ export interface AppSettings {
   readonly projects_dir: string;
   readonly providers: readonly AiProvider[];
   readonly language: string;
+  readonly mcp_servers: readonly McpServerConfig[];
 }
 
 export interface AiProvider {
@@ -234,4 +256,34 @@ export interface ToolInfo {
   readonly path: string | null;
   readonly install_command: string;
   readonly install_url: string;
+}
+
+// ===== MCP Types =====
+
+export interface McpServerConfig {
+  readonly id: string;
+  readonly name: string;
+  readonly server_type: string;
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly url: string;
+  readonly env: Record<string, string>;
+  readonly enabled: boolean;
+  readonly tools: readonly McpToolInfo[];
+}
+
+export interface McpToolInfo {
+  readonly name: string;
+  readonly description: string;
+}
+
+export interface McpPreset {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly server_type: string;
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly env_keys: readonly string[];
+  readonly category: string;
 }

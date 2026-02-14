@@ -8,6 +8,8 @@ use commands::runtime as runtime_cmd;
 use commands::library as library_cmd;
 use commands::settings as settings_cmd;
 use commands::system as system_cmd;
+use commands::provider_detect as provider_detect_cmd;
+use commands::mcp as mcp_cmd;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -15,6 +17,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             // Bootstrap commands
             bootstrap_cmd::analyze_seed,
@@ -31,6 +34,8 @@ pub fn run() {
             runtime_cmd::stop_loop,
             runtime_cmd::get_status,
             runtime_cmd::get_cycle_history,
+            runtime_cmd::get_agent_memory,
+            runtime_cmd::get_handoff_note,
             runtime_cmd::tail_log,
             // Library commands
             library_cmd::list_personas,
@@ -46,10 +51,20 @@ pub fn run() {
             settings_cmd::update_provider,
             settings_cmd::remove_provider,
             settings_cmd::test_provider,
+            // Provider detection commands
+            provider_detect_cmd::detect_providers,
+            provider_detect_cmd::export_providers,
+            provider_detect_cmd::import_providers,
             // System commands
             system_cmd::detect_system,
             system_cmd::install_tool,
             system_cmd::check_engine,
+            // MCP commands
+            mcp_cmd::list_mcp_servers,
+            mcp_cmd::add_mcp_server,
+            mcp_cmd::update_mcp_server,
+            mcp_cmd::remove_mcp_server,
+            mcp_cmd::get_mcp_presets,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

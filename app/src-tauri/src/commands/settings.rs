@@ -25,6 +25,7 @@ fn default_settings() -> AppSettings {
             .to_string(),
         providers: vec![],
         language: "en".to_string(),
+        mcp_servers: vec![],
     }
 }
 

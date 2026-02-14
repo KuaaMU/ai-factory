@@ -11,7 +11,11 @@ const en = {
   "sidebar.newProject": "New Project",
   "sidebar.library": "Library",
   "sidebar.settings": "Settings",
-  "sidebar.version": "AI Factory v0.1.0",
+  "sidebar.version": "AI Factory v0.2.0",
+  "sidebar.checkUpdate": "Check for Updates",
+  "sidebar.checking": "Checking...",
+  "sidebar.updateAvailable": "Update Available",
+  "sidebar.upToDate": "Up to Date",
 
   // Common
   "common.start": "Start",
@@ -89,6 +93,11 @@ const en = {
   "projectDetail.deleteConfirm": "Delete this project? This cannot be undone.",
   "projectDetail.errors": "errors",
   "projectDetail.goToSettings": "Go to Settings",
+  "projectDetail.handoff": "Handoff Note",
+  "projectDetail.noHandoff": "No handoff note yet. Start the loop to begin.",
+  "projectDetail.agentMemory": "Agent Memory",
+  "projectDetail.noMemory": "No memory recorded yet for this agent.",
+  "projectDetail.selectAgent": "Select an agent to view its memory.",
 
   // Library
   "library.title": "Library",
@@ -151,6 +160,28 @@ const en = {
   "system.engineCheck": "Engine Status",
   "system.engineOk": "Engine found and ready",
   "system.engineMissing": "Engine not found. Install it to start loops.",
+  "system.clickRefresh": "Click Refresh to detect your system environment.",
+
+  // Provider Detection
+  "settings.quickSetup": "Quick Setup",
+  "settings.quickSetupDesc": "Auto-detect existing API configurations from your system",
+  "settings.detectProviders": "Detect Configurations",
+  "settings.detecting": "Detecting...",
+  "settings.noDetected": "No existing configurations found.",
+  "settings.detectedFrom": "Source",
+  "settings.importProvider": "Import",
+  "settings.importAll": "Import All",
+  "settings.exportProviders": "Export",
+  "settings.importJson": "Import JSON",
+  "settings.imported": "Imported",
+
+  // MCP Servers
+  "settings.mcpServers": "MCP Servers",
+  "settings.mcpDesc": "Connect agents to external services via MCP",
+  "settings.mcpPresets": "Quick Add",
+  "settings.mcpConfigured": "Configured Servers",
+  "settings.mcpNoServers": "No MCP servers configured. Add one from the presets above.",
+  "settings.mcpAdded": "Added",
 } as const;
 
 const zh: Record<keyof typeof en, string> = {
@@ -159,7 +190,11 @@ const zh: Record<keyof typeof en, string> = {
   "sidebar.newProject": "\u65b0\u5efa\u9879\u76ee",
   "sidebar.library": "\u8d44\u6e90\u5e93",
   "sidebar.settings": "\u8bbe\u7f6e",
-  "sidebar.version": "AI Factory v0.1.0",
+  "sidebar.version": "AI Factory v0.2.0",
+  "sidebar.checkUpdate": "\u68c0\u67e5\u66f4\u65b0",
+  "sidebar.checking": "\u68c0\u67e5\u4e2d...",
+  "sidebar.updateAvailable": "\u65b0\u7248\u672c\u53ef\u7528",
+  "sidebar.upToDate": "\u5df2\u662f\u6700\u65b0\u7248",
 
   // Common
   "common.start": "\u542f\u52a8",
@@ -237,6 +272,11 @@ const zh: Record<keyof typeof en, string> = {
   "projectDetail.deleteConfirm": "\u5220\u9664\u6b64\u9879\u76ee\uff1f\u6b64\u64cd\u4f5c\u4e0d\u53ef\u64a4\u9500\u3002",
   "projectDetail.errors": "\u4e2a\u9519\u8bef",
   "projectDetail.goToSettings": "\u524d\u5f80\u8bbe\u7f6e",
+  "projectDetail.handoff": "\u4ea4\u63a5\u7b14\u8bb0",
+  "projectDetail.noHandoff": "\u8fd8\u6ca1\u6709\u4ea4\u63a5\u7b14\u8bb0\u3002\u542f\u52a8\u5faa\u73af\u4ee5\u5f00\u59cb\u3002",
+  "projectDetail.agentMemory": "\u667a\u80fd\u4f53\u8bb0\u5fc6",
+  "projectDetail.noMemory": "\u6b64\u667a\u80fd\u4f53\u8fd8\u6ca1\u6709\u8bb0\u5fc6\u8bb0\u5f55\u3002",
+  "projectDetail.selectAgent": "\u9009\u62e9\u4e00\u4e2a\u667a\u80fd\u4f53\u67e5\u770b\u5176\u8bb0\u5fc6\u3002",
 
   // Library
   "library.title": "\u8d44\u6e90\u5e93",
@@ -299,6 +339,28 @@ const zh: Record<keyof typeof en, string> = {
   "system.engineCheck": "\u5f15\u64ce\u72b6\u6001",
   "system.engineOk": "\u5f15\u64ce\u5df2\u627e\u5230\uff0c\u5c31\u7eea",
   "system.engineMissing": "\u672a\u627e\u5230\u5f15\u64ce\u3002\u8bf7\u5148\u5b89\u88c5\u624d\u80fd\u542f\u52a8\u5faa\u73af\u3002",
+  "system.clickRefresh": "\u70b9\u51fb\u5237\u65b0\u68c0\u6d4b\u60a8\u7684\u7cfb\u7edf\u73af\u5883\u3002",
+
+  // Provider Detection
+  "settings.quickSetup": "\u5feb\u901f\u8bbe\u7f6e",
+  "settings.quickSetupDesc": "\u81ea\u52a8\u68c0\u6d4b\u7cfb\u7edf\u4e2d\u5df2\u6709\u7684 API \u914d\u7f6e",
+  "settings.detectProviders": "\u68c0\u6d4b\u914d\u7f6e",
+  "settings.detecting": "\u68c0\u6d4b\u4e2d...",
+  "settings.noDetected": "\u672a\u627e\u5230\u5df2\u6709\u914d\u7f6e\u3002",
+  "settings.detectedFrom": "\u6765\u6e90",
+  "settings.importProvider": "\u5bfc\u5165",
+  "settings.importAll": "\u5168\u90e8\u5bfc\u5165",
+  "settings.exportProviders": "\u5bfc\u51fa",
+  "settings.importJson": "\u5bfc\u5165 JSON",
+  "settings.imported": "\u5df2\u5bfc\u5165",
+
+  // MCP Servers
+  "settings.mcpServers": "MCP \u670d\u52a1\u5668",
+  "settings.mcpDesc": "\u901a\u8fc7 MCP \u8fde\u63a5\u667a\u80fd\u4f53\u5230\u5916\u90e8\u670d\u52a1",
+  "settings.mcpPresets": "\u5feb\u901f\u6dfb\u52a0",
+  "settings.mcpConfigured": "\u5df2\u914d\u7f6e\u670d\u52a1\u5668",
+  "settings.mcpNoServers": "\u672a\u914d\u7f6e MCP \u670d\u52a1\u5668\u3002\u4ece\u4e0a\u65b9\u9884\u8bbe\u4e2d\u6dfb\u52a0\u3002",
+  "settings.mcpAdded": "\u5df2\u6dfb\u52a0",
 };
 
 type TranslationKey = keyof typeof en;

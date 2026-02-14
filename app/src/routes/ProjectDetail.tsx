@@ -14,6 +14,8 @@ import {
   AlertCircle,
   Loader2,
   FolderOpen,
+  Brain,
+  ArrowRightLeft,
 } from "lucide-react";
 import {
   getProject,
@@ -25,6 +27,8 @@ import {
   stopLoop,
   deleteProject,
   loadSettings,
+  getAgentMemory,
+  getHandoffNote,
 } from "@/lib/tauri";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -35,6 +39,7 @@ export function ProjectDetail() {
   const queryClient = useQueryClient();
   const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
+  const [selectedAgentForMemory, setSelectedAgentForMemory] = useState<string | null>(null);
 
   const { data: project, isLoading: projectLoading } = useQuery({
     queryKey: ["project", id],
@@ -73,6 +78,19 @@ export function ProjectDetail() {
     queryFn: () => tailLog(project!.output_dir, 200),
     enabled: !!project?.output_dir,
     refetchInterval: 1500,
+  });
+
+  const { data: handoff } = useQuery({
+    queryKey: ["handoff", project?.output_dir],
+    queryFn: () => getHandoffNote(project!.output_dir),
+    enabled: !!project?.output_dir,
+    refetchInterval: 5000,
+  });
+
+  const { data: agentMemory } = useQuery({
+    queryKey: ["agent-memory", project?.output_dir, selectedAgentForMemory],
+    queryFn: () => getAgentMemory(project!.output_dir, selectedAgentForMemory!),
+    enabled: !!project?.output_dir && !!selectedAgentForMemory,
   });
 
   const startMutation = useMutation({
@@ -311,6 +329,74 @@ export function ProjectDetail() {
                 {t("projectDetail.noCycles")}
               </p>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Handoff & Agent Memory */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Current Handoff Note */}
+        <div className="rounded-lg border bg-card">
+          <div className="border-b px-4 py-3">
+            <div className="flex items-center gap-2">
+              <ArrowRightLeft className="h-4 w-4" />
+              <h2 className="font-semibold">{t("projectDetail.handoff")}</h2>
+            </div>
+          </div>
+          <div className="max-h-48 overflow-auto p-4">
+            {handoff && handoff.trim() ? (
+              <pre className="whitespace-pre-wrap text-sm text-muted-foreground">
+                {handoff}
+              </pre>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {t("projectDetail.noHandoff")}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Agent Memory Viewer */}
+        <div className="rounded-lg border bg-card">
+          <div className="border-b px-4 py-3">
+            <div className="flex items-center gap-2">
+              <Brain className="h-4 w-4" />
+              <h2 className="font-semibold">{t("projectDetail.agentMemory")}</h2>
+            </div>
+          </div>
+          <div className="p-4">
+            {/* Agent role selector from cycle history */}
+            <div className="mb-3 flex flex-wrap gap-1">
+              {cycles && [...new Set(cycles.map((c) => c.agent_role))].map((role) => (
+                <button
+                  key={role}
+                  onClick={() => setSelectedAgentForMemory(role)}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                    selectedAgentForMemory === role
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary hover:bg-secondary/80",
+                  )}
+                >
+                  {role}
+                </button>
+              ))}
+            </div>
+            <div className="max-h-40 overflow-auto">
+              {selectedAgentForMemory && agentMemory && agentMemory.trim() ? (
+                <pre className="whitespace-pre-wrap text-xs text-muted-foreground">
+                  {agentMemory}
+                </pre>
+              ) : selectedAgentForMemory ? (
+                <p className="text-sm text-muted-foreground">
+                  {t("projectDetail.noMemory")}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {t("projectDetail.selectAgent")}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>

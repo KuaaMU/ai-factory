@@ -9,6 +9,22 @@ use tauri::command;
 use crate::models::*;
 use crate::engine::api_client;
 
+/// Create a Command that suppresses visible console windows on Windows.
+/// On non-Windows platforms this is a plain `Command::new()`.
+#[cfg(target_os = "windows")]
+pub(crate) fn silent_command(program: &str) -> Command {
+    use std::os::windows::process::CommandExt;
+    let mut cmd = Command::new(program);
+    // CREATE_NO_WINDOW = 0x08000000
+    cmd.creation_flags(0x08000000);
+    cmd
+}
+
+#[cfg(not(target_os = "windows"))]
+pub(crate) fn silent_command(program: &str) -> Command {
+    Command::new(program)
+}
+
 // Track running loops: project_dir -> stop_flag
 static RUNNING_LOOPS: std::sync::LazyLock<Mutex<HashMap<String, Arc<AtomicBool>>>> =
     std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
@@ -178,6 +194,28 @@ pub fn get_cycle_history(project_dir: String) -> Result<Vec<CycleResult>, String
 }
 
 #[command]
+pub fn get_agent_memory(project_dir: String, role: String) -> Result<String, String> {
+    let dir = PathBuf::from(&project_dir);
+    let memory_path = dir.join(format!("memories/agents/{}/MEMORY.md", role));
+    if !memory_path.exists() {
+        return Ok(String::new());
+    }
+    std::fs::read_to_string(&memory_path)
+        .map_err(|e| format!("Failed to read agent memory: {}", e))
+}
+
+#[command]
+pub fn get_handoff_note(project_dir: String) -> Result<String, String> {
+    let dir = PathBuf::from(&project_dir);
+    let handoff_path = dir.join("memories/HANDOFF.md");
+    if !handoff_path.exists() {
+        return Ok(String::new());
+    }
+    std::fs::read_to_string(&handoff_path)
+        .map_err(|e| format!("Failed to read handoff note: {}", e))
+}
+
+#[command]
 pub fn tail_log(project_dir: String, lines: usize) -> Result<Vec<String>, String> {
     let dir = PathBuf::from(&project_dir);
     let log_file = dir.join("logs/auto-loop.log");
@@ -210,53 +248,95 @@ pub fn tail_log(project_dir: String, lines: usize) -> Result<Vec<String>, String
 // ===== API Credential Resolution =====
 
 fn resolve_api_credentials(engine: &str, model: &str) -> Result<ApiCredentials, String> {
-    let settings = load_app_settings()?;
+    // 1. Try app-level settings (stored providers)
+    if let Ok(settings) = load_app_settings() {
+        let provider_type = match engine {
+            "claude" => "anthropic",
+            "openai" | "codex" => "openai",
+            other => other,
+        };
 
-    let provider_type = match engine {
-        "claude" => "anthropic",
-        "openai" | "codex" => "openai",
-        other => other,
-    };
+        if let Some(provider) = settings
+            .providers
+            .iter()
+            .find(|p| p.enabled && (p.provider_type == provider_type || p.provider_type == engine))
+        {
+            if !provider.api_key.is_empty() {
+                let api_base_url = if provider.api_base_url.is_empty() {
+                    match engine {
+                        "claude" => "https://api.anthropic.com".to_string(),
+                        "openai" | "codex" => "https://api.openai.com".to_string(),
+                        _ => provider.api_base_url.clone(),
+                    }
+                } else {
+                    provider.api_base_url.clone()
+                };
 
-    let provider = settings
-        .providers
-        .iter()
-        .find(|p| p.enabled && (p.provider_type == provider_type || p.provider_type == engine))
-        .ok_or_else(|| {
-            format!(
-                "No API provider configured for engine '{}'. Add an {} provider with API key in Settings.",
-                engine,
-                match engine {
-                    "claude" => "Anthropic",
-                    "openai" | "codex" => "OpenAI",
-                    _ => engine,
-                }
-            )
-        })?;
-
-    if provider.api_key.is_empty() {
-        return Err(format!(
-            "API key is empty for provider '{}'. Configure it in Settings.",
-            provider.name
-        ));
+                return Ok(ApiCredentials {
+                    engine_type: provider_type.to_string(),
+                    api_key: provider.api_key.clone(),
+                    api_base_url,
+                    model: model.to_string(),
+                });
+            }
+        }
     }
 
-    let api_base_url = if provider.api_base_url.is_empty() {
-        match engine {
-            "claude" => "https://api.anthropic.com".to_string(),
-            "openai" | "codex" => "https://api.openai.com".to_string(),
-            _ => return Err("API base URL is required".to_string()),
-        }
-    } else {
-        provider.api_base_url.clone()
+    // 2. Try environment variables
+    let env_configs = match engine {
+        "claude" => vec![("ANTHROPIC_API_KEY", "anthropic", "https://api.anthropic.com")],
+        "openai" | "codex" => vec![("OPENAI_API_KEY", "openai", "https://api.openai.com")],
+        _ => vec![
+            ("ANTHROPIC_API_KEY", "anthropic", "https://api.anthropic.com"),
+            ("OPENAI_API_KEY", "openai", "https://api.openai.com"),
+            ("OPENROUTER_API_KEY", "openrouter", "https://openrouter.ai/api/v1"),
+        ],
     };
 
-    Ok(ApiCredentials {
-        engine_type: provider_type.to_string(),
-        api_key: provider.api_key.clone(),
-        api_base_url,
-        model: model.to_string(),
-    })
+    for (env_var, engine_type, base_url) in &env_configs {
+        if let Ok(key) = std::env::var(env_var) {
+            if !key.trim().is_empty() {
+                return Ok(ApiCredentials {
+                    engine_type: engine_type.to_string(),
+                    api_key: key.trim().to_string(),
+                    api_base_url: base_url.to_string(),
+                    model: model.to_string(),
+                });
+            }
+        }
+    }
+
+    // 3. Try auto-detected providers
+    if let Ok(detected) = crate::commands::provider_detect::detect_providers() {
+        let provider_type = match engine {
+            "claude" => "anthropic",
+            "openai" | "codex" => "openai",
+            other => other,
+        };
+        if let Some(dp) = detected.iter().find(|d| d.provider_type == provider_type) {
+            return Ok(ApiCredentials {
+                engine_type: dp.provider_type.clone(),
+                api_key: dp.api_key.clone(),
+                api_base_url: dp.api_base_url.clone(),
+                model: model.to_string(),
+            });
+        }
+    }
+
+    Err(format!(
+        "No API provider configured for engine '{}'. Add an {} provider with API key in Settings, set the {} env var, or have a config file available.",
+        engine,
+        match engine {
+            "claude" => "Anthropic",
+            "openai" | "codex" => "OpenAI",
+            _ => engine,
+        },
+        match engine {
+            "claude" => "ANTHROPIC_API_KEY",
+            "openai" | "codex" => "OPENAI_API_KEY",
+            _ => "API_KEY",
+        }
+    ))
 }
 
 fn load_app_settings() -> Result<AppSettings, String> {
@@ -416,11 +496,15 @@ fn run_api_cycle(
     let consensus_content = std::fs::read_to_string(dir.join("memories/consensus.md"))
         .map_err(|e| format!("Failed to read consensus: {}", e))?;
 
-    // 3. Build focused prompts
-    let system_prompt = build_system_prompt(&agent_content, agent_role, cycle);
-    let user_prompt = build_user_prompt(&consensus_content);
+    // 3. Load agent memory and handoff note from previous agent
+    let agent_memory = load_agent_memory(dir, agent_role);
+    let handoff_note = load_handoff(dir);
 
-    // 4. Call the appropriate API
+    // 4. Build focused prompts with memory and handoff context
+    let system_prompt = build_system_prompt(&agent_content, agent_role, cycle, &agent_memory);
+    let user_prompt = build_user_prompt(&consensus_content, &handoff_note);
+
+    // 5. Call the appropriate API
     let response = match credentials.engine_type.as_str() {
         "anthropic" => api_client::call_anthropic(
             &credentials.api_key,
@@ -441,7 +525,7 @@ fn run_api_cycle(
         other => return Err(format!("Unsupported engine type: {}", other)),
     };
 
-    // 5. Try to extract and apply consensus update
+    // 6. Try to extract and apply consensus update
     if let Some(updated_consensus) = extract_consensus_update(&response.text) {
         // Backup existing consensus
         let backup_path = dir.join("memories/consensus.md.bak");
@@ -454,6 +538,30 @@ fn run_api_cycle(
         append_log(dir, &format!("Consensus updated by {} agent", agent_role));
     } else {
         append_log(dir, "No structured consensus update in response (logged only)");
+    }
+
+    // 7. Extract and save agent's reflection/memory and handoff note
+    let reflection = extract_reflection(&response.text);
+    let new_handoff = extract_handoff(&response.text);
+
+    if let Some(ref refl) = reflection {
+        append_agent_memory(dir, agent_role, cycle, refl);
+        append_log(dir, &format!("Agent {} saved reflection to memory", agent_role));
+    }
+
+    if let Some(ref handoff) = new_handoff {
+        save_handoff(dir, agent_role, cycle, handoff);
+        append_log(dir, &format!("Agent {} left handoff note for next agent", agent_role));
+    } else {
+        // Auto-generate a minimal handoff from the response
+        let auto_handoff = truncate_string(&response.text, 500);
+        save_handoff(dir, agent_role, cycle, &auto_handoff);
+    }
+
+    // 8. Check for skill requests and log them
+    let skill_requests = extract_skill_requests(&response.text);
+    if !skill_requests.is_empty() {
+        append_log(dir, &format!("Agent {} requested skills: {}", agent_role, skill_requests.join(", ")));
     }
 
     Ok((response.text, response.input_tokens, response.output_tokens))
@@ -480,27 +588,54 @@ fn read_agent_file(dir: &Path, role: &str) -> Result<String, String> {
     ))
 }
 
-fn build_system_prompt(agent_content: &str, role: &str, cycle: u32) -> String {
+fn build_system_prompt(agent_content: &str, role: &str, cycle: u32, agent_memory: &str) -> String {
+    // Load relevant skills for this agent's role
+    let skill_section = load_role_skills(role);
+
+    // Include agent memory if available
+    let memory_section = if agent_memory.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "\n\n## Your Memory (from previous cycles)\n\n{}\n",
+            agent_memory
+        )
+    };
+
     format!(
         r#"{agent_content}
-
+{skill_section}{memory_section}
 ---
 
 You are performing cycle {cycle} of the autonomous company loop.
 
 YOUR TASK:
-1. Read the current consensus document provided below
+1. Read the current consensus document and the handoff note from the previous agent
 2. From your perspective as the {role}, analyze the current state
 3. Decide on actions aligned with the company mission
 4. Output the COMPLETE updated consensus.md
+5. Leave a REFLECTION about what you learned and a HANDOFF note for the next agent
+
+If you need a specific skill not already provided, you can request it:
+<<<SKILL_REQUEST>>>skill-name<<<SKILL_REQUEST_END>>>
 
 OUTPUT FORMAT:
 First, briefly state your analysis and decision (2-3 sentences).
-Then output the FULL updated consensus.md between these markers:
 
+Then output the FULL updated consensus.md between these markers:
 <<<CONSENSUS_START>>>
 [Full updated consensus.md content]
 <<<CONSENSUS_END>>>
+
+Then provide your reflection (what you learned, what went well/poorly):
+<<<REFLECTION_START>>>
+[Brief reflection on this cycle - what you decided and why, what you learned]
+<<<REFLECTION_END>>>
+
+Then leave a handoff note for the next agent:
+<<<HANDOFF_START>>>
+[Brief note about current priorities, blockers, and what the next agent should focus on]
+<<<HANDOFF_END>>>
 
 RULES:
 - Output the COMPLETE consensus.md between the markers (not partial)
@@ -508,29 +643,30 @@ RULES:
 - Add your decision to the Decision Log table
 - Update Current Focus and Next Action as needed
 - Preserve all existing sections
-- Be concise and actionable"#,
+- Be concise and actionable
+- Your reflection will be saved to your personal memory for future cycles
+- Your handoff note will be shown to the next agent in the chain"#,
         agent_content = agent_content,
+        skill_section = skill_section,
+        memory_section = memory_section,
         cycle = cycle,
         role = role,
     )
 }
 
-fn build_user_prompt(consensus_content: &str) -> String {
-    format!("Current consensus.md:\n\n{}", consensus_content)
+fn build_user_prompt(consensus_content: &str, handoff_note: &str) -> String {
+    if handoff_note.is_empty() {
+        format!("Current consensus.md:\n\n{}", consensus_content)
+    } else {
+        format!(
+            "## Handoff from Previous Agent\n\n{}\n\n---\n\nCurrent consensus.md:\n\n{}",
+            handoff_note, consensus_content
+        )
+    }
 }
 
 fn extract_consensus_update(response: &str) -> Option<String> {
-    let start_marker = "<<<CONSENSUS_START>>>";
-    let end_marker = "<<<CONSENSUS_END>>>";
-
-    let start_idx = response.find(start_marker)?;
-    let end_idx = response.find(end_marker)?;
-
-    if end_idx <= start_idx {
-        return None;
-    }
-
-    let content = response[start_idx + start_marker.len()..end_idx].trim();
+    let content = extract_between_markers(response, "<<<CONSENSUS_START>>>", "<<<CONSENSUS_END>>>")?;
 
     // Validate the extracted content has required consensus sections
     if content.contains("## Company State")
@@ -538,7 +674,7 @@ fn extract_consensus_update(response: &str) -> Option<String> {
         && content.contains("## Decision Log")
         && content.len() > 100
     {
-        Some(content.to_string())
+        Some(content)
     } else {
         None
     }
@@ -576,7 +712,7 @@ pub fn resolve_engine_binary(engine: &str) -> Result<String, String> {
 pub fn find_binary(name: &str) -> Option<String> {
     #[cfg(target_os = "windows")]
     {
-        Command::new("where")
+        silent_command("where")
             .arg(name)
             .output()
             .ok()
@@ -589,7 +725,7 @@ pub fn find_binary(name: &str) -> Option<String> {
 
     #[cfg(not(target_os = "windows"))]
     {
-        Command::new("which")
+        silent_command("which")
             .arg(name)
             .output()
             .ok()
@@ -707,4 +843,255 @@ fn truncate_string(s: &str, max_len: usize) -> String {
     } else {
         format!("{}...", &s[..max_len])
     }
+}
+
+// ===== Workspace-as-Memory (inspired by nanobot) =====
+
+/// Load the last N reflections from an agent's personal memory file.
+fn load_agent_memory(dir: &Path, role: &str) -> String {
+    let memory_path = dir.join(format!("memories/agents/{}/MEMORY.md", role));
+    if !memory_path.exists() {
+        return String::new();
+    }
+
+    match std::fs::read_to_string(&memory_path) {
+        Ok(content) => {
+            // Return only the last 5 entries to keep context manageable
+            let entries: Vec<&str> = content.split("\n---\n").collect();
+            let start = if entries.len() > 5 { entries.len() - 5 } else { 0 };
+            entries[start..].join("\n---\n")
+        }
+        Err(_) => String::new(),
+    }
+}
+
+/// Append a reflection entry to the agent's personal memory file.
+fn append_agent_memory(dir: &Path, role: &str, cycle: u32, reflection: &str) {
+    let memory_dir = dir.join(format!("memories/agents/{}", role));
+    let _ = std::fs::create_dir_all(&memory_dir);
+
+    let memory_path = memory_dir.join("MEMORY.md");
+    let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M").to_string();
+
+    let entry = format!(
+        "\n---\n**Cycle {} | {}**\n\n{}\n",
+        cycle, timestamp, reflection
+    );
+
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&memory_path)
+    {
+        use std::io::Write;
+        let _ = file.write_all(entry.as_bytes());
+    }
+}
+
+/// Load the handoff note left by the previous agent.
+fn load_handoff(dir: &Path) -> String {
+    let handoff_path = dir.join("memories/HANDOFF.md");
+    std::fs::read_to_string(&handoff_path).unwrap_or_default()
+}
+
+/// Save a handoff note for the next agent in the chain.
+fn save_handoff(dir: &Path, from_role: &str, cycle: u32, note: &str) {
+    let handoff_path = dir.join("memories/HANDOFF.md");
+    let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M").to_string();
+    let content = format!(
+        "**From: {} | Cycle {} | {}**\n\n{}",
+        from_role, cycle, timestamp, note
+    );
+    let _ = std::fs::write(handoff_path, content);
+}
+
+// ===== Reflection/Handoff Extraction =====
+
+/// Extract reflection content from the API response.
+fn extract_reflection(response: &str) -> Option<String> {
+    let start = "<<<REFLECTION_START>>>";
+    let end = "<<<REFLECTION_END>>>";
+    extract_between_markers(response, start, end)
+}
+
+/// Extract handoff note from the API response.
+fn extract_handoff(response: &str) -> Option<String> {
+    let start = "<<<HANDOFF_START>>>";
+    let end = "<<<HANDOFF_END>>>";
+    extract_between_markers(response, start, end)
+}
+
+/// Generic marker extraction helper.
+fn extract_between_markers(text: &str, start_marker: &str, end_marker: &str) -> Option<String> {
+    let start_idx = text.find(start_marker)?;
+    let content_start = start_idx + start_marker.len();
+    let end_idx = text[content_start..].find(end_marker)?;
+    let content = text[content_start..content_start + end_idx].trim();
+    if content.is_empty() {
+        None
+    } else {
+        Some(content.to_string())
+    }
+}
+
+// ===== Phase 3: Skill Injection =====
+
+/// Map agent role to relevant skill IDs for context injection.
+fn role_to_skills(role: &str) -> Vec<&'static str> {
+    match role {
+        "ceo" => vec!["deep-research", "product-strategist", "market-sizing", "startup-financial-modeling", "premortem"],
+        "fullstack" => vec!["code-review-security", "tdd-workflow", "frontend-patterns", "backend-patterns", "api-design"],
+        "devops" => vec!["devops", "docker-patterns", "security-audit", "deployment-patterns"],
+        "critic" => vec!["premortem", "financial-unit-economics", "security-review"],
+        "product" => vec!["product-strategist", "deep-research", "market-sizing"],
+        "ui" => vec!["frontend-patterns", "product-strategist"],
+        "qa" => vec!["senior-qa", "tdd-workflow", "e2e-testing", "verification-loop"],
+        "marketing" => vec!["seo-content-strategist", "competitive-intelligence", "content-strategy"],
+        "operations" => vec!["micro-saas-launcher", "startup-financial-modeling"],
+        "sales" => vec!["competitive-intelligence", "pricing-strategy"],
+        "cfo" => vec!["financial-unit-economics", "pricing-strategy", "startup-financial-modeling"],
+        "research" => vec!["deep-research", "competitive-intelligence", "market-sizing"],
+        _ => vec![],
+    }
+}
+
+/// Load skill summaries for a given role and format as a prompt section.
+fn load_role_skills(role: &str) -> String {
+    let skill_ids = role_to_skills(role);
+    if skill_ids.is_empty() {
+        return String::new();
+    }
+
+    let lib_dir = crate::commands::library::get_library_dir_pub();
+    let mut skill_sections = Vec::new();
+
+    for skill_id in &skill_ids {
+        if let Some(summary) = load_skill_summary(skill_id, lib_dir.as_deref()) {
+            skill_sections.push(format!("### {}\n{}", skill_id, summary));
+        }
+    }
+
+    if skill_sections.is_empty() {
+        return String::new();
+    }
+
+    format!("\n\n## Available Skills\n\n{}", skill_sections.join("\n\n"))
+}
+
+/// Load a brief summary of a skill from disk.
+fn load_skill_summary(skill_id: &str, lib_dir: Option<&std::path::Path>) -> Option<String> {
+    let lib = lib_dir?;
+
+    // Try library/skills/{id}.yaml first
+    let yaml_path = lib.join("skills").join(format!("{}.yaml", skill_id));
+    if yaml_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&yaml_path) {
+            // Extract description and first few capabilities
+            let mut desc = String::new();
+            let mut caps = Vec::new();
+            let mut in_capabilities = false;
+
+            for line in content.lines() {
+                if let Some(rest) = line.strip_prefix("description:") {
+                    desc = rest.trim().trim_matches('"').to_string();
+                } else if line.trim() == "capabilities:" {
+                    in_capabilities = true;
+                } else if in_capabilities {
+                    if let Some(cap) = line.trim().strip_prefix("- ") {
+                        if caps.len() < 3 {
+                            caps.push(cap.trim_matches('"').to_string());
+                        }
+                    } else if !line.starts_with(' ') {
+                        in_capabilities = false;
+                    }
+                }
+            }
+
+            if !desc.is_empty() {
+                let cap_text = if caps.is_empty() {
+                    String::new()
+                } else {
+                    format!("\nCapabilities: {}", caps.join("; "))
+                };
+                return Some(format!("{}{}", desc, cap_text));
+            }
+        }
+    }
+
+    // Try real-skills/{id}/SKILL.md (first 5 content lines)
+    let real_path = lib.join("real-skills").join(skill_id).join("SKILL.md");
+    if real_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&real_path) {
+            return Some(extract_skill_md_summary(&content));
+        }
+    }
+
+    // Try ecc-skills/{id}/SKILL.md
+    let ecc_path = lib.join("ecc-skills").join(skill_id).join("SKILL.md");
+    if ecc_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&ecc_path) {
+            return Some(extract_skill_md_summary(&content));
+        }
+    }
+
+    None
+}
+
+/// Extract a brief summary from a SKILL.md file (frontmatter description + first content paragraph).
+fn extract_skill_md_summary(content: &str) -> String {
+    let mut description = String::new();
+
+    // Parse frontmatter description
+    if content.starts_with("---") {
+        let parts: Vec<&str> = content.splitn(3, "---").collect();
+        if parts.len() >= 3 {
+            for line in parts[1].lines() {
+                if let Some(rest) = line.trim().strip_prefix("description:") {
+                    description = rest.trim().to_string();
+                    break;
+                }
+            }
+        }
+    }
+
+    if description.is_empty() {
+        // Fallback: first non-empty, non-heading line
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if !trimmed.is_empty() && !trimmed.starts_with('#') && !trimmed.starts_with("---") {
+                description = trimmed.to_string();
+                break;
+            }
+        }
+    }
+
+    // Limit to ~300 chars to keep prompt manageable
+    if description.len() > 300 {
+        format!("{}...", &description[..300])
+    } else {
+        description
+    }
+}
+
+/// Extract skill request markers from API response.
+fn extract_skill_requests(response: &str) -> Vec<String> {
+    let start = "<<<SKILL_REQUEST>>>";
+    let end = "<<<SKILL_REQUEST_END>>>";
+    let mut requests = Vec::new();
+
+    let mut search_from = 0;
+    while let Some(s_idx) = response[search_from..].find(start) {
+        let abs_start = search_from + s_idx + start.len();
+        if let Some(e_idx) = response[abs_start..].find(end) {
+            let skill_name = response[abs_start..abs_start + e_idx].trim().to_string();
+            if !skill_name.is_empty() {
+                requests.push(skill_name);
+            }
+            search_from = abs_start + e_idx + end.len();
+        } else {
+            break;
+        }
+    }
+
+    requests
 }

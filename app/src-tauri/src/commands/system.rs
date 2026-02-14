@@ -1,7 +1,6 @@
-use std::process::Command;
 use tauri::command;
 use crate::models::*;
-use crate::commands::runtime::{find_binary, resolve_engine_binary};
+use crate::commands::runtime::{find_binary, resolve_engine_binary, silent_command};
 
 #[command]
 pub fn detect_system() -> Result<SystemInfo, String> {
@@ -65,19 +64,19 @@ pub fn install_tool(tool_name: String, install_dir: Option<String>) -> Result<St
     // On Windows, npm might be a .cmd file
     #[cfg(target_os = "windows")]
     let output = if npm_path.ends_with(".cmd") || npm_path.ends_with(".bat") {
-        Command::new("cmd")
+        silent_command("cmd")
             .arg("/C")
             .arg(&npm_path)
             .args(&args)
             .output()
     } else {
-        Command::new(&npm_path)
+        silent_command(&npm_path)
             .args(&args)
             .output()
     };
 
     #[cfg(not(target_os = "windows"))]
-    let output = Command::new(&npm_path)
+    let output = silent_command(&npm_path)
         .args(&args)
         .output();
 
@@ -248,19 +247,19 @@ fn get_version(cmd: &str, args: &[&str]) -> Option<String> {
 
     #[cfg(target_os = "windows")]
     let output = if full_path.ends_with(".cmd") || full_path.ends_with(".bat") {
-        Command::new("cmd")
+        silent_command("cmd")
             .arg("/C")
             .arg(&full_path)
             .args(args)
             .output()
     } else {
-        Command::new(&full_path)
+        silent_command(&full_path)
             .args(args)
             .output()
     };
 
     #[cfg(not(target_os = "windows"))]
-    let output = Command::new(&full_path)
+    let output = silent_command(&full_path)
         .args(args)
         .output();
 

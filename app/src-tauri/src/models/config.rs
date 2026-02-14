@@ -204,6 +204,12 @@ pub struct PersonaInfo {
     pub expertise: String,
     pub mental_models: Vec<String>,
     pub core_capabilities: Vec<String>,
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub file_path: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -214,6 +220,12 @@ pub struct SkillInfo {
     pub description: String,
     pub source: String,
     pub content_preview: String,
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub file_path: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -223,6 +235,12 @@ pub struct WorkflowInfo {
     pub description: String,
     pub chain: Vec<String>,
     pub convergence_cycles: u32,
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub file_path: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 // ===== Project =====
@@ -265,6 +283,8 @@ pub struct AppSettings {
     pub providers: Vec<AiProvider>,
     #[serde(default = "default_language")]
     pub language: String,
+    #[serde(default)]
+    pub mcp_servers: Vec<McpServerConfig>,
 }
 
 fn default_language() -> String { "en".to_string() }
@@ -280,6 +300,27 @@ pub struct AiProvider {
     pub enabled: bool,
     pub is_healthy: bool,
     pub last_error: Option<String>,
+}
+
+// ===== MCP Server Configuration =====
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpServerConfig {
+    pub id: String,
+    pub name: String,
+    pub server_type: String,        // "stdio" | "sse" | "streamable-http"
+    pub command: String,             // for stdio: executable command
+    pub args: Vec<String>,           // for stdio: command arguments
+    pub url: String,                 // for sse/http: server URL
+    pub env: std::collections::HashMap<String, String>,  // environment variables
+    pub enabled: bool,
+    pub tools: Vec<McpToolInfo>,     // discovered tools (cached)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpToolInfo {
+    pub name: String,
+    pub description: String,
 }
 
 // ===== Project Registry =====
@@ -305,6 +346,19 @@ pub struct LogEntry {
     pub level: String,
     pub agent: String,
     pub message: String,
+}
+
+// ===== Detected Provider (auto-detection) =====
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DetectedProvider {
+    pub source: String,
+    pub provider_type: String,
+    pub api_key_preview: String,
+    pub api_key: String,
+    pub api_base_url: String,
+    pub suggested_name: String,
+    pub suggested_model: String,
 }
 
 // ===== System Environment =====

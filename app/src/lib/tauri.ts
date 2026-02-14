@@ -13,6 +13,9 @@ import type {
   AppSettings,
   AiProvider,
   SystemInfo,
+  DetectedProvider,
+  McpServerConfig,
+  McpPreset,
 } from "./types";
 
 // ===== Bootstrap Commands =====
@@ -63,6 +66,19 @@ export async function tailLog(
   lines: number,
 ): Promise<readonly string[]> {
   return invoke("tail_log", { projectDir, lines });
+}
+
+export async function getAgentMemory(
+  projectDir: string,
+  role: string,
+): Promise<string> {
+  return invoke("get_agent_memory", { projectDir, role });
+}
+
+export async function getHandoffNote(
+  projectDir: string,
+): Promise<string> {
+  return invoke("get_handoff_note", { projectDir });
 }
 
 // ===== Memory Commands =====
@@ -166,4 +182,40 @@ export async function installTool(
 
 export async function checkEngine(engine: string): Promise<string> {
   return invoke("check_engine", { engine });
+}
+
+// ===== Provider Detection Commands =====
+
+export async function detectProviders(): Promise<readonly DetectedProvider[]> {
+  return invoke("detect_providers");
+}
+
+export async function exportProviders(providerIds: readonly string[]): Promise<string> {
+  return invoke("export_providers", { providerIds });
+}
+
+export async function importProviders(json: string): Promise<AppSettings> {
+  return invoke("import_providers", { json });
+}
+
+// ===== MCP Commands =====
+
+export async function listMcpServers(): Promise<readonly McpServerConfig[]> {
+  return invoke("list_mcp_servers");
+}
+
+export async function addMcpServer(server: McpServerConfig): Promise<AppSettings> {
+  return invoke("add_mcp_server", { server });
+}
+
+export async function updateMcpServer(server: McpServerConfig): Promise<AppSettings> {
+  return invoke("update_mcp_server", { server });
+}
+
+export async function removeMcpServer(serverId: string): Promise<AppSettings> {
+  return invoke("remove_mcp_server", { serverId });
+}
+
+export async function getMcpPresets(): Promise<readonly McpPreset[]> {
+  return invoke("get_mcp_presets");
 }

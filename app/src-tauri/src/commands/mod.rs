@@ -4,3 +4,5 @@ pub mod runtime;
 pub mod library;
 pub mod settings;
 pub mod system;
+pub mod provider_detect;
+pub mod mcp;

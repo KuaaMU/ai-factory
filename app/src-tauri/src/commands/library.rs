@@ -55,144 +55,479 @@ pub fn register_project(name: &str, output_dir: &str) -> Result<(), String> {
     save_registry(&registry)
 }
 
-// ===== Persona / Skill / Workflow commands (unchanged) =====
+// ===== Library base path =====
+
+/// Public accessor for library directory resolution (used by runtime.rs skill injection).
+pub fn get_library_dir_pub() -> Option<PathBuf> {
+    get_library_dir()
+}
+
+/// Resolve the library directory. Checks for a local `library/` folder next to
+/// the executable first, then falls back to a `library/` relative to CWD or
+/// the ai-factory source root.
+fn get_library_dir() -> Option<PathBuf> {
+    // Check relative to executable
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(parent) = exe.parent() {
+            let lib = parent.join("library");
+            if lib.exists() {
+                return Some(lib);
+            }
+            // Tauri dev mode: exe is in target/debug, library is at project root
+            let dev_lib = parent
+                .parent()
+                .and_then(|p| p.parent())
+                .and_then(|p| p.parent())
+                .map(|p| p.join("library"));
+            if let Some(ref dl) = dev_lib {
+                if dl.exists() {
+                    return dev_lib;
+                }
+            }
+        }
+    }
+
+    // Check CWD
+    let cwd_lib = PathBuf::from("library");
+    if cwd_lib.exists() {
+        return Some(cwd_lib);
+    }
+
+    // Known absolute paths (dev environment)
+    let known = PathBuf::from("F:/ai-factory/library");
+    if known.exists() {
+        return Some(known);
+    }
+
+    None
+}
+
+// ===== Persona loading =====
+
+#[derive(serde::Deserialize)]
+struct PersonaYaml {
+    id: String,
+    name: String,
+    #[serde(default)]
+    role: String,
+    #[serde(default)]
+    layer: String,
+    #[serde(default)]
+    mental_models: Vec<String>,
+    #[serde(default)]
+    core_capabilities: Vec<String>,
+    #[serde(default)]
+    communication_style: String,
+    #[serde(default)]
+    recommended_skills: Vec<String>,
+}
+
+fn load_personas_from_files() -> Option<Vec<PersonaInfo>> {
+    let lib_dir = get_library_dir()?;
+    let personas_dir = lib_dir.join("personas");
+    if !personas_dir.exists() {
+        return None;
+    }
+
+    let mut personas = Vec::new();
+    let entries = std::fs::read_dir(&personas_dir).ok()?;
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = path.file_name()?.to_string_lossy().to_string();
+
+        // Skip index files
+        if name.starts_with('_') || !name.ends_with(".yaml") {
+            continue;
+        }
+
+        if let Ok(content) = std::fs::read_to_string(&path) {
+            if let Ok(yaml) = serde_yaml::from_str::<PersonaYaml>(&content) {
+                // Build a concise expertise string from communication_style or capabilities
+                let expertise = if !yaml.communication_style.is_empty() {
+                    yaml.communication_style.lines().next().unwrap_or("").trim().to_string()
+                } else {
+                    yaml.core_capabilities.first().cloned().unwrap_or_default()
+                };
+
+                // Extract short mental model names (before the " - " description)
+                let short_models: Vec<String> = yaml
+                    .mental_models
+                    .iter()
+                    .map(|m| {
+                        m.split(" - ").next().unwrap_or(m).trim().to_string()
+                    })
+                    .collect();
+
+                // Extract short capability names
+                let short_caps: Vec<String> = yaml
+                    .core_capabilities
+                    .iter()
+                    .map(|c| {
+                        // Take just the first phrase/sentence
+                        c.split('.').next().unwrap_or(c)
+                            .split(',').next().unwrap_or(c)
+                            .trim()
+                            .to_string()
+                    })
+                    .take(4)
+                    .collect();
+
+                let tags = yaml.recommended_skills.clone();
+
+                personas.push(PersonaInfo {
+                    id: yaml.id,
+                    name: yaml.name,
+                    role: yaml.role,
+                    expertise,
+                    mental_models: short_models,
+                    core_capabilities: short_caps,
+                    enabled: true,
+                    file_path: Some(path.display().to_string()),
+                    tags,
+                });
+            }
+        }
+    }
+
+    if personas.is_empty() {
+        None
+    } else {
+        Some(personas)
+    }
+}
+
+// ===== Skill loading =====
+
+#[derive(serde::Deserialize)]
+struct SkillYaml {
+    id: String,
+    name: String,
+    #[serde(default)]
+    category: String,
+    #[serde(default)]
+    description: String,
+    #[serde(default)]
+    capabilities: Vec<String>,
+}
+
+fn load_skills_from_files() -> Option<Vec<SkillInfo>> {
+    let lib_dir = get_library_dir()?;
+    let mut skills = Vec::new();
+
+    // 1. Load from library/skills/*.yaml (auto-company skills)
+    let skills_dir = lib_dir.join("skills");
+    if skills_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&skills_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                if name.starts_with('_') || !name.ends_with(".yaml") {
+                    continue;
+                }
+                if let Ok(content) = std::fs::read_to_string(&path) {
+                    if let Ok(yaml) = serde_yaml::from_str::<SkillYaml>(&content) {
+                        skills.push(SkillInfo {
+                            id: yaml.id.clone(),
+                            name: yaml.name,
+                            category: yaml.category,
+                            description: yaml.description,
+                            source: "auto-company".to_string(),
+                            content_preview: yaml.capabilities.first().cloned().unwrap_or_default(),
+                            enabled: true,
+                            file_path: Some(path.display().to_string()),
+                            tags: vec![],
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Load from library/real-skills/*/SKILL.md
+    let real_skills_dir = lib_dir.join("real-skills");
+    if real_skills_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&real_skills_dir) {
+            for entry in entries.flatten() {
+                let dir_path = entry.path();
+                if !dir_path.is_dir() {
+                    continue;
+                }
+                let skill_md = dir_path.join("SKILL.md");
+                if !skill_md.exists() {
+                    continue;
+                }
+                let dir_name = dir_path.file_name().unwrap_or_default().to_string_lossy().to_string();
+
+                // Already loaded from yaml?
+                if skills.iter().any(|s| s.id == dir_name) {
+                    // Update the existing entry with file path
+                    if let Some(existing) = skills.iter_mut().find(|s| s.id == dir_name) {
+                        existing.file_path = Some(skill_md.display().to_string());
+                    }
+                    continue;
+                }
+
+                // Parse SKILL.md frontmatter for name and description
+                if let Ok(content) = std::fs::read_to_string(&skill_md) {
+                    let (name, desc) = parse_skill_md_frontmatter(&content);
+                    let preview = content.lines()
+                        .filter(|l| !l.starts_with('#') && !l.starts_with("---") && !l.trim().is_empty())
+                        .take(1)
+                        .collect::<Vec<_>>()
+                        .join("");
+                    skills.push(SkillInfo {
+                        id: dir_name,
+                        name,
+                        category: "General".to_string(),
+                        description: desc,
+                        source: "real-skills".to_string(),
+                        content_preview: truncate(&preview, 150),
+                        enabled: true,
+                        file_path: Some(skill_md.display().to_string()),
+                        tags: vec![],
+                    });
+                }
+            }
+        }
+    }
+
+    // 3. Load from library/ecc-skills/*/SKILL.md
+    let ecc_skills_dir = lib_dir.join("ecc-skills");
+    if ecc_skills_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&ecc_skills_dir) {
+            for entry in entries.flatten() {
+                let dir_path = entry.path();
+                if !dir_path.is_dir() {
+                    continue;
+                }
+                let skill_md = dir_path.join("SKILL.md");
+                if !skill_md.exists() {
+                    continue;
+                }
+                let dir_name = dir_path.file_name().unwrap_or_default().to_string_lossy().to_string();
+
+                if skills.iter().any(|s| s.id == dir_name) {
+                    continue;
+                }
+
+                if let Ok(content) = std::fs::read_to_string(&skill_md) {
+                    let (name, desc) = parse_skill_md_frontmatter(&content);
+                    let preview = content.lines()
+                        .filter(|l| !l.starts_with('#') && !l.starts_with("---") && !l.trim().is_empty())
+                        .take(1)
+                        .collect::<Vec<_>>()
+                        .join("");
+                    skills.push(SkillInfo {
+                        id: dir_name,
+                        name,
+                        category: "Engineering".to_string(),
+                        description: desc,
+                        source: "ecc".to_string(),
+                        content_preview: truncate(&preview, 150),
+                        enabled: true,
+                        file_path: Some(skill_md.display().to_string()),
+                        tags: vec![],
+                    });
+                }
+            }
+        }
+    }
+
+    if skills.is_empty() {
+        None
+    } else {
+        Some(skills)
+    }
+}
+
+/// Parse SKILL.md YAML frontmatter for name and description.
+fn parse_skill_md_frontmatter(content: &str) -> (String, String) {
+    let mut name = String::new();
+    let mut desc = String::new();
+
+    if content.starts_with("---") {
+        let parts: Vec<&str> = content.splitn(3, "---").collect();
+        if parts.len() >= 3 {
+            let frontmatter = parts[1];
+            for line in frontmatter.lines() {
+                let trimmed = line.trim();
+                if let Some(rest) = trimmed.strip_prefix("name:") {
+                    name = rest.trim().to_string();
+                } else if let Some(rest) = trimmed.strip_prefix("description:") {
+                    desc = rest.trim().to_string();
+                }
+            }
+        }
+    }
+
+    // Fallback: use first H1 heading as name
+    if name.is_empty() {
+        for line in content.lines() {
+            if let Some(heading) = line.strip_prefix("# ") {
+                name = heading.trim().to_string();
+                break;
+            }
+        }
+    }
+
+    if name.is_empty() {
+        name = "Unnamed Skill".to_string();
+    }
+
+    (name, desc)
+}
+
+fn truncate(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        s.to_string()
+    } else {
+        format!("{}...", &s[..max])
+    }
+}
+
+// ===== Workflow loading =====
+
+#[derive(serde::Deserialize)]
+struct WorkflowYaml {
+    id: String,
+    name: String,
+    #[serde(default)]
+    description: String,
+    #[serde(default)]
+    chain: Vec<WorkflowStepYaml>,
+    #[serde(default = "default_convergence")]
+    convergence_cycles: u32,
+}
+
+#[derive(serde::Deserialize)]
+struct WorkflowStepYaml {
+    role: String,
+    #[serde(default)]
+    persona: String,
+}
+
+fn default_convergence() -> u32 { 1 }
+
+fn load_workflows_from_files() -> Option<Vec<WorkflowInfo>> {
+    let lib_dir = get_library_dir()?;
+    let workflows_dir = lib_dir.join("workflows");
+    if !workflows_dir.exists() {
+        return None;
+    }
+
+    let mut workflows = Vec::new();
+    let entries = std::fs::read_dir(&workflows_dir).ok()?;
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = path.file_name()?.to_string_lossy().to_string();
+        if !name.ends_with(".yaml") {
+            continue;
+        }
+
+        if let Ok(content) = std::fs::read_to_string(&path) {
+            if let Ok(yaml) = serde_yaml::from_str::<WorkflowYaml>(&content) {
+                let chain: Vec<String> = yaml.chain.iter().map(|s| s.role.clone()).collect();
+                workflows.push(WorkflowInfo {
+                    id: yaml.id,
+                    name: yaml.name,
+                    description: yaml.description,
+                    chain,
+                    convergence_cycles: yaml.convergence_cycles,
+                    enabled: true,
+                    file_path: Some(path.display().to_string()),
+                    tags: vec![],
+                });
+            }
+        }
+    }
+
+    if workflows.is_empty() {
+        None
+    } else {
+        Some(workflows)
+    }
+}
+
+// ===== Tauri Commands =====
 
 #[command]
 pub fn list_personas() -> Result<Vec<PersonaInfo>, String> {
-    Ok(vec![
-        PersonaInfo {
-            id: "jeff-bezos".to_string(),
-            name: "Jeff Bezos".to_string(),
-            role: "ceo".to_string(),
-            expertise: "Customer-obsessed leader. Uses PR/FAQ, flywheel thinking, Day 1 mindset.".to_string(),
-            mental_models: vec!["PR/FAQ".to_string(), "Flywheel Effect".to_string(), "Day 1 Mindset".to_string(), "Two-Pizza Teams".to_string(), "Regret Minimization".to_string()],
-            core_capabilities: vec!["Strategic decisions".to_string(), "Resource allocation".to_string(), "Business model design".to_string()],
-        },
-        PersonaInfo {
-            id: "dhh".to_string(),
-            name: "David Heinemeier Hansson".to_string(),
-            role: "fullstack".to_string(),
-            expertise: "Creator of Ruby on Rails. Pragmatic, opinionated developer who ships fast.".to_string(),
-            mental_models: vec!["Convention over Configuration".to_string(), "Majestic Monolith".to_string(), "Boring Technology".to_string()],
-            core_capabilities: vec!["Full-stack development".to_string(), "Architecture decisions".to_string(), "Code review".to_string()],
-        },
-        PersonaInfo {
-            id: "kelsey-hightower".to_string(),
-            name: "Kelsey Hightower".to_string(),
-            role: "devops".to_string(),
-            expertise: "Cloud-native expert. Kubernetes, infrastructure as code, reliability engineering.".to_string(),
-            mental_models: vec!["Infrastructure as Code".to_string(), "Immutable Infrastructure".to_string(), "12-Factor App".to_string()],
-            core_capabilities: vec!["DevOps pipelines".to_string(), "Cloud deployment".to_string(), "Security hardening".to_string()],
-        },
-        PersonaInfo {
-            id: "charlie-munger".to_string(),
-            name: "Charlie Munger".to_string(),
-            role: "critic".to_string(),
-            expertise: "Inversion thinking, mental models, finding flaws before they become failures.".to_string(),
-            mental_models: vec!["Inversion".to_string(), "Second-Order Thinking".to_string(), "Circle of Competence".to_string()],
-            core_capabilities: vec!["Risk assessment".to_string(), "Pre-mortem analysis".to_string(), "Decision auditing".to_string()],
-        },
-        PersonaInfo {
-            id: "don-norman".to_string(),
-            name: "Don Norman".to_string(),
-            role: "product".to_string(),
-            expertise: "Father of UX design. Human-centered design, usability, cognitive psychology.".to_string(),
-            mental_models: vec!["Human-Centered Design".to_string(), "Affordances".to_string(), "Norman Door".to_string()],
-            core_capabilities: vec!["User research".to_string(), "Product strategy".to_string(), "UX design".to_string()],
-        },
-        PersonaInfo {
-            id: "matias-duarte".to_string(),
-            name: "Matias Duarte".to_string(),
-            role: "ui".to_string(),
-            expertise: "VP of Design at Google. Material Design creator. Visual systems thinker.".to_string(),
-            mental_models: vec!["Material Design".to_string(), "Design Systems".to_string(), "Responsive Design".to_string()],
-            core_capabilities: vec!["UI design".to_string(), "Design systems".to_string(), "Visual language".to_string()],
-        },
-        PersonaInfo {
-            id: "james-bach".to_string(),
-            name: "James Bach".to_string(),
-            role: "qa".to_string(),
-            expertise: "Exploratory testing pioneer. Context-driven testing school.".to_string(),
-            mental_models: vec!["Exploratory Testing".to_string(), "Risk-Based Testing".to_string(), "Heuristic Test Strategy".to_string()],
-            core_capabilities: vec!["Test strategy".to_string(), "Bug hunting".to_string(), "Quality assurance".to_string()],
-        },
-        PersonaInfo {
-            id: "seth-godin".to_string(),
-            name: "Seth Godin".to_string(),
-            role: "marketing".to_string(),
-            expertise: "Permission marketing, Purple Cow, Tribes. Build for the smallest viable audience.".to_string(),
-            mental_models: vec!["Purple Cow".to_string(), "Permission Marketing".to_string(), "Smallest Viable Audience".to_string()],
-            core_capabilities: vec!["Brand strategy".to_string(), "Content marketing".to_string(), "Growth hacking".to_string()],
-        },
-        PersonaInfo {
-            id: "paul-graham".to_string(),
-            name: "Paul Graham".to_string(),
-            role: "operations".to_string(),
-            expertise: "Y Combinator founder. Do things that don't scale. Make something people want.".to_string(),
-            mental_models: vec!["Do Things That Don't Scale".to_string(), "Ramen Profitability".to_string(), "Default Alive".to_string()],
-            core_capabilities: vec!["Startup operations".to_string(), "Fundraising".to_string(), "Product-market fit".to_string()],
-        },
-        PersonaInfo {
-            id: "aaron-ross".to_string(),
-            name: "Aaron Ross".to_string(),
-            role: "sales".to_string(),
-            expertise: "Predictable Revenue author. Outbound sales methodology, pipeline building.".to_string(),
-            mental_models: vec!["Predictable Revenue".to_string(), "Cold Outreach 2.0".to_string(), "Sales Assembly Line".to_string()],
-            core_capabilities: vec!["Sales strategy".to_string(), "Pipeline building".to_string(), "Revenue forecasting".to_string()],
-        },
-        PersonaInfo {
-            id: "patrick-campbell".to_string(),
-            name: "Patrick Campbell".to_string(),
-            role: "cfo".to_string(),
-            expertise: "ProfitWell founder. SaaS metrics, pricing strategy, retention optimization.".to_string(),
-            mental_models: vec!["Unit Economics".to_string(), "Value-Based Pricing".to_string(), "Retention Curve Analysis".to_string()],
-            core_capabilities: vec!["Financial modeling".to_string(), "Pricing strategy".to_string(), "SaaS metrics".to_string()],
-        },
-        PersonaInfo {
-            id: "ben-thompson".to_string(),
-            name: "Ben Thompson".to_string(),
-            role: "research".to_string(),
-            expertise: "Stratechery author. Aggregation theory, platform dynamics, tech industry analysis.".to_string(),
-            mental_models: vec!["Aggregation Theory".to_string(), "Stratechery Framework".to_string(), "Platform Dynamics".to_string()],
-            core_capabilities: vec!["Market research".to_string(), "Competitive analysis".to_string(), "Trend forecasting".to_string()],
-        },
-    ])
+    if let Some(personas) = load_personas_from_files() {
+        return Ok(personas);
+    }
+    // Fallback to hardcoded defaults
+    Ok(fallback_personas())
 }
 
 #[command]
 pub fn list_skills() -> Result<Vec<SkillInfo>, String> {
+    if let Some(skills) = load_skills_from_files() {
+        return Ok(skills);
+    }
+    Ok(fallback_skills())
+}
+
+#[command]
+pub fn list_workflows() -> Result<Vec<WorkflowInfo>, String> {
+    if let Some(workflows) = load_workflows_from_files() {
+        return Ok(workflows);
+    }
+    Ok(fallback_workflows())
+}
+
+// ===== Hardcoded Fallbacks =====
+
+fn default_lib_fields() -> (bool, Option<String>, Vec<String>) {
+    (true, None, vec![])
+}
+
+fn fallback_personas() -> Vec<PersonaInfo> {
+    let (enabled, file_path, tags) = default_lib_fields();
+    vec![
+        PersonaInfo { id: "jeff-bezos".into(), name: "Jeff Bezos".into(), role: "ceo".into(), expertise: "Customer-obsessed leader. Uses PR/FAQ, flywheel thinking, Day 1 mindset.".into(), mental_models: vec!["PR/FAQ".into(), "Flywheel Effect".into(), "Day 1 Mindset".into()], core_capabilities: vec!["Strategic decisions".into(), "Resource allocation".into()], enabled, file_path: file_path.clone(), tags: tags.clone() },
+        PersonaInfo { id: "dhh".into(), name: "David Heinemeier Hansson".into(), role: "fullstack".into(), expertise: "Creator of Ruby on Rails. Pragmatic, opinionated developer.".into(), mental_models: vec!["Convention over Configuration".into(), "Majestic Monolith".into()], core_capabilities: vec!["Full-stack development".into(), "Architecture decisions".into()], enabled, file_path: file_path.clone(), tags: tags.clone() },
+        PersonaInfo { id: "kelsey-hightower".into(), name: "Kelsey Hightower".into(), role: "devops".into(), expertise: "Cloud-native expert. Kubernetes, infrastructure as code.".into(), mental_models: vec!["Infrastructure as Code".into(), "12-Factor App".into()], core_capabilities: vec!["DevOps pipelines".into(), "Cloud deployment".into()], enabled, file_path: file_path.clone(), tags: tags.clone() },
+        PersonaInfo { id: "charlie-munger".into(), name: "Charlie Munger".into(), role: "critic".into(), expertise: "Inversion thinking, mental models, finding flaws.".into(), mental_models: vec!["Inversion".into(), "Second-Order Thinking".into()], core_capabilities: vec!["Risk assessment".into(), "Pre-mortem analysis".into()], enabled, file_path: file_path.clone(), tags: tags.clone() },
+        PersonaInfo { id: "don-norman".into(), name: "Don Norman".into(), role: "product".into(), expertise: "Father of UX design. Human-centered design, usability.".into(), mental_models: vec!["Human-Centered Design".into(), "Affordances".into()], core_capabilities: vec!["User research".into(), "Product strategy".into()], enabled, file_path: file_path.clone(), tags: tags.clone() },
+        PersonaInfo { id: "matias-duarte".into(), name: "Matias Duarte".into(), role: "ui".into(), expertise: "Material Design creator. Visual systems thinker.".into(), mental_models: vec!["Material Design".into(), "Design Systems".into()], core_capabilities: vec!["UI design".into(), "Design systems".into()], enabled, file_path: file_path.clone(), tags: tags.clone() },
+        PersonaInfo { id: "james-bach".into(), name: "James Bach".into(), role: "qa".into(), expertise: "Exploratory testing pioneer.".into(), mental_models: vec!["Exploratory Testing".into(), "Risk-Based Testing".into()], core_capabilities: vec!["Test strategy".into(), "Bug hunting".into()], enabled, file_path: file_path.clone(), tags: tags.clone() },
+        PersonaInfo { id: "seth-godin".into(), name: "Seth Godin".into(), role: "marketing".into(), expertise: "Permission marketing, Purple Cow, Tribes.".into(), mental_models: vec!["Purple Cow".into(), "Permission Marketing".into()], core_capabilities: vec!["Brand strategy".into(), "Content marketing".into()], enabled, file_path: file_path.clone(), tags: tags.clone() },
+        PersonaInfo { id: "paul-graham".into(), name: "Paul Graham".into(), role: "operations".into(), expertise: "Y Combinator founder. Do things that don't scale.".into(), mental_models: vec!["Do Things That Don't Scale".into(), "Ramen Profitability".into()], core_capabilities: vec!["Startup operations".into(), "Product-market fit".into()], enabled, file_path: file_path.clone(), tags: tags.clone() },
+        PersonaInfo { id: "aaron-ross".into(), name: "Aaron Ross".into(), role: "sales".into(), expertise: "Predictable Revenue author.".into(), mental_models: vec!["Predictable Revenue".into(), "Sales Assembly Line".into()], core_capabilities: vec!["Sales strategy".into(), "Pipeline building".into()], enabled, file_path: file_path.clone(), tags: tags.clone() },
+        PersonaInfo { id: "patrick-campbell".into(), name: "Patrick Campbell".into(), role: "cfo".into(), expertise: "ProfitWell founder. SaaS metrics, pricing strategy.".into(), mental_models: vec!["Unit Economics".into(), "Value-Based Pricing".into()], core_capabilities: vec!["Financial modeling".into(), "Pricing strategy".into()], enabled, file_path: file_path.clone(), tags: tags.clone() },
+        PersonaInfo { id: "ben-thompson".into(), name: "Ben Thompson".into(), role: "research".into(), expertise: "Stratechery author. Aggregation theory, platform dynamics.".into(), mental_models: vec!["Aggregation Theory".into(), "Platform Dynamics".into()], core_capabilities: vec!["Market research".into(), "Competitive analysis".into()], enabled, file_path, tags },
+    ]
+}
+
+fn fallback_skills() -> Vec<SkillInfo> {
+    let (enabled, file_path, tags) = default_lib_fields();
     let mut skills = Vec::new();
 
-    let auto_company_skills = vec![
-        ("deep-research", "Research", "Comprehensive research methodology with multi-source validation"),
-        ("product-strategist", "Product", "Product strategy framework for feature prioritization"),
-        ("market-sizing", "Business", "TAM/SAM/SOM market sizing methodology"),
+    let auto_company = vec![
+        ("deep-research", "Research", "Comprehensive research methodology"),
+        ("product-strategist", "Product", "Product strategy framework"),
+        ("market-sizing", "Business", "TAM/SAM/SOM market sizing"),
         ("startup-financial-modeling", "Finance", "Financial modeling for startups"),
-        ("micro-saas-launcher", "Operations", "Micro-SaaS launch checklist and playbook"),
-        ("premortem", "Strategy", "Pre-mortem analysis to identify failure modes"),
-        ("code-review-security", "Engineering", "Security-focused code review checklist"),
-        ("devops", "Engineering", "DevOps pipeline setup and CI/CD"),
+        ("micro-saas-launcher", "Operations", "Micro-SaaS launch playbook"),
+        ("premortem", "Strategy", "Pre-mortem analysis"),
+        ("code-review-security", "Engineering", "Security-focused code review"),
+        ("devops", "Engineering", "DevOps pipeline setup"),
         ("senior-qa", "Engineering", "Senior QA testing strategy"),
-        ("security-audit", "Security", "Comprehensive security audit framework"),
-        ("competitive-intelligence", "Business", "Competitive intelligence gathering"),
+        ("security-audit", "Security", "Security audit framework"),
+        ("competitive-intelligence", "Business", "Competitive intelligence"),
         ("financial-unit-economics", "Finance", "Unit economics analysis"),
         ("seo-content-strategist", "Marketing", "SEO and content strategy"),
         ("pricing-strategy", "Business", "Pricing strategy framework"),
-        ("web-scraping", "Engineering", "Web scraping tools and techniques"),
+        ("web-scraping", "Engineering", "Web scraping tools"),
     ];
 
-    for (id, category, description) in auto_company_skills {
-        skills.push(SkillInfo {
-            id: id.to_string(),
-            name: id.replace('-', " ").to_string(),
-            category: category.to_string(),
-            description: description.to_string(),
-            source: "auto-company".to_string(),
-            content_preview: String::new(),
-        });
+    for (id, category, description) in auto_company {
+        skills.push(SkillInfo { id: id.into(), name: id.replace('-', " "), category: category.into(), description: description.into(), source: "auto-company".into(), content_preview: String::new(), enabled, file_path: file_path.clone(), tags: tags.clone() });
     }
 
-    let ecc_skills = vec![
+    let ecc = vec![
         ("tdd-workflow", "Engineering", "Test-driven development workflow"),
         ("security-review", "Security", "Security vulnerability review"),
         ("security-scan", "Security", "Automated security scanning"),
@@ -208,30 +543,23 @@ pub fn list_skills() -> Result<Vec<SkillInfo>, String> {
         ("verification-loop", "Engineering", "Verification loop for code changes"),
     ];
 
-    for (id, category, description) in ecc_skills {
-        skills.push(SkillInfo {
-            id: id.to_string(),
-            name: id.replace('-', " ").to_string(),
-            category: category.to_string(),
-            description: description.to_string(),
-            source: "ecc".to_string(),
-            content_preview: String::new(),
-        });
+    for (id, category, description) in ecc {
+        skills.push(SkillInfo { id: id.into(), name: id.replace('-', " "), category: category.into(), description: description.into(), source: "ecc".into(), content_preview: String::new(), enabled, file_path: file_path.clone(), tags: tags.clone() });
     }
 
-    Ok(skills)
+    skills
 }
 
-#[command]
-pub fn list_workflows() -> Result<Vec<WorkflowInfo>, String> {
-    Ok(vec![
-        WorkflowInfo { id: "pricing-monetization".to_string(), name: "Pricing & Monetization".to_string(), description: "End-to-end pricing strategy workflow.".to_string(), chain: vec!["research".to_string(), "cfo".to_string(), "product".to_string(), "marketing".to_string(), "critic".to_string(), "cfo".to_string()], convergence_cycles: 2 },
-        WorkflowInfo { id: "product-launch".to_string(), name: "Product Launch".to_string(), description: "Coordinated product launch workflow.".to_string(), chain: vec!["marketing".to_string(), "research".to_string(), "sales".to_string(), "marketing".to_string(), "devops".to_string(), "ceo".to_string()], convergence_cycles: 2 },
-        WorkflowInfo { id: "weekly-review".to_string(), name: "Weekly Review".to_string(), description: "Weekly strategic review cycle.".to_string(), chain: vec!["research".to_string(), "cfo".to_string(), "marketing".to_string(), "qa".to_string(), "ceo".to_string(), "critic".to_string()], convergence_cycles: 1 },
-        WorkflowInfo { id: "new-product-eval".to_string(), name: "New Product Evaluation".to_string(), description: "Evaluate new product ideas.".to_string(), chain: vec!["research".to_string(), "product".to_string(), "cfo".to_string(), "critic".to_string(), "ceo".to_string()], convergence_cycles: 2 },
-        WorkflowInfo { id: "feature-development".to_string(), name: "Feature Development".to_string(), description: "End-to-end feature development.".to_string(), chain: vec!["product".to_string(), "fullstack".to_string(), "qa".to_string(), "devops".to_string()], convergence_cycles: 1 },
-        WorkflowInfo { id: "opportunity-discovery".to_string(), name: "Opportunity Discovery".to_string(), description: "Discover and validate market opportunities.".to_string(), chain: vec!["research".to_string(), "marketing".to_string(), "sales".to_string(), "cfo".to_string(), "ceo".to_string()], convergence_cycles: 2 },
-    ])
+fn fallback_workflows() -> Vec<WorkflowInfo> {
+    let (enabled, file_path, tags) = default_lib_fields();
+    vec![
+        WorkflowInfo { id: "pricing-monetization".into(), name: "Pricing & Monetization".into(), description: "End-to-end pricing strategy workflow.".into(), chain: vec!["research".into(), "cfo".into(), "product".into(), "marketing".into(), "critic".into(), "cfo".into()], convergence_cycles: 2, enabled, file_path: file_path.clone(), tags: tags.clone() },
+        WorkflowInfo { id: "product-launch".into(), name: "Product Launch".into(), description: "Coordinated product launch workflow.".into(), chain: vec!["marketing".into(), "research".into(), "sales".into(), "marketing".into(), "devops".into(), "ceo".into()], convergence_cycles: 2, enabled, file_path: file_path.clone(), tags: tags.clone() },
+        WorkflowInfo { id: "weekly-review".into(), name: "Weekly Review".into(), description: "Weekly strategic review cycle.".into(), chain: vec!["research".into(), "cfo".into(), "marketing".into(), "qa".into(), "ceo".into(), "critic".into()], convergence_cycles: 1, enabled, file_path: file_path.clone(), tags: tags.clone() },
+        WorkflowInfo { id: "new-product-eval".into(), name: "New Product Evaluation".into(), description: "Evaluate new product ideas.".into(), chain: vec!["research".into(), "product".into(), "cfo".into(), "critic".into(), "ceo".into()], convergence_cycles: 2, enabled, file_path: file_path.clone(), tags: tags.clone() },
+        WorkflowInfo { id: "feature-development".into(), name: "Feature Development".into(), description: "End-to-end feature development.".into(), chain: vec!["product".into(), "fullstack".into(), "qa".into(), "devops".into()], convergence_cycles: 1, enabled, file_path: file_path.clone(), tags: tags.clone() },
+        WorkflowInfo { id: "opportunity-discovery".into(), name: "Opportunity Discovery".into(), description: "Discover and validate market opportunities.".into(), chain: vec!["research".into(), "marketing".into(), "sales".into(), "cfo".into(), "ceo".into()], convergence_cycles: 2, enabled, file_path, tags },
+    ]
 }
 
 // ===== Project Management (registry-based) =====
