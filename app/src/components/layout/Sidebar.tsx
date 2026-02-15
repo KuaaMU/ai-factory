@@ -5,7 +5,6 @@ import {
   Plus,
   BookOpen,
   Settings,
-  Factory,
   Globe,
   Github,
   RefreshCw,
@@ -56,7 +55,7 @@ export function Sidebar() {
     <aside className="flex h-full w-60 flex-col border-r bg-card">
       {/* Logo */}
       <div className="flex items-center gap-2 border-b px-4 py-4">
-        <Factory className="h-6 w-6 text-primary" />
+        <img src="/icons/icon.png" alt="Omnihive" className="h-6 w-6" />
         <span className="text-lg font-semibold">Omnihive</span>
       </div>
 
