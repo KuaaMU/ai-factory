@@ -97,6 +97,7 @@ export interface CycleResult {
   readonly outcome: string;
   readonly files_changed: readonly string[];
   readonly error: string | null;
+  readonly duration_secs?: number;
 }
 
 export interface RuntimeStatus {
@@ -194,6 +195,19 @@ export interface DetectedProvider {
   readonly suggested_model: string;
 }
 
+// ===== Resolved Runtime Config (for config preview) =====
+
+export interface ResolvedRuntimeConfig {
+  readonly engine: string;
+  readonly model_tier: string;
+  readonly resolved_model: string;
+  readonly provider_name: string;
+  readonly provider_type: string;
+  readonly api_base_url: string;
+  readonly api_key_preview: string;
+  readonly source: string;
+}
+
 // ===== App Settings =====
 
 export interface AppSettings {
@@ -211,6 +225,8 @@ export interface AppSettings {
   readonly skill_repos: readonly SkillRepo[];
 }
 
+export type EngineId = "claude" | "codex" | "opencode" | "gemini";
+
 export interface AiProvider {
   readonly id: string;
   readonly name: string;
@@ -221,6 +237,11 @@ export interface AiProvider {
   readonly enabled: boolean;
   readonly is_healthy: boolean;
   readonly last_error: string | null;
+  readonly engine: EngineId;
+  readonly anthropic_version?: string;
+  readonly extra_headers?: Record<string, string>;
+  readonly force_stream?: boolean;
+  readonly api_format?: string;
 }
 
 // ===== Tauri Command Results =====
@@ -318,6 +339,13 @@ export interface AddAgentRequest {
   readonly layer: string;
 }
 
+export interface AddWorkflowRequest {
+  readonly name: string;
+  readonly description: string;
+  readonly chain: readonly string[];
+  readonly convergence_cycles: number;
+}
+
 // ===== Skill Repository Types =====
 
 export interface SkillRepo {
@@ -336,4 +364,31 @@ export interface RepoItem {
   readonly item_type: string;
   readonly download_url: string | null;
   readonly description: string;
+}
+
+// ===== Library State =====
+
+export interface LibraryState {
+  readonly disabled_personas: readonly string[];
+  readonly disabled_skills: readonly string[];
+  readonly disabled_workflows: readonly string[];
+}
+
+// ===== Per-Project Runtime Override =====
+
+export interface ProjectRuntimeOverride {
+  readonly engine?: string;
+  readonly model?: string;
+  readonly provider_id?: string;
+}
+
+// ===== Project Event (Activity Feed) =====
+
+export interface ProjectEvent {
+  readonly id: string;
+  readonly timestamp: string;
+  readonly event_type: string;
+  readonly agent: string;
+  readonly summary: string;
+  readonly details: string;
 }

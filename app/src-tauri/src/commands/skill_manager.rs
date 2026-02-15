@@ -416,3 +416,201 @@ pub fn list_custom_skills() -> Result<Vec<SkillInfo>, String> {
 
     Ok(results)
 }
+
+// ===== Custom Workflow Management =====
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct AddWorkflowRequest {
+    pub name: String,
+    pub description: String,
+    pub chain: Vec<String>,
+    pub convergence_cycles: u32,
+}
+
+fn get_custom_workflows_path() -> PathBuf {
+    dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("omnihive")
+        .join("custom_workflows.json")
+}
+
+fn load_custom_workflows_file() -> Vec<WorkflowInfo> {
+    let path = get_custom_workflows_path();
+    if !path.exists() {
+        return vec![];
+    }
+    std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|c| serde_json::from_str(&c).ok())
+        .unwrap_or_default()
+}
+
+fn save_custom_workflows_file(workflows: &[WorkflowInfo]) -> Result<(), String> {
+    let path = get_custom_workflows_path();
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create dir: {}", e))?;
+    }
+    let json = serde_json::to_string_pretty(workflows)
+        .map_err(|e| format!("Serialize error: {}", e))?;
+    fs::write(&path, &json)
+        .map_err(|e| format!("Write error: {}", e))?;
+    Ok(())
+}
+
+#[command]
+pub fn add_custom_workflow(workflow: AddWorkflowRequest) -> Result<WorkflowInfo, String> {
+    let slug = workflow.name.to_lowercase()
+        .replace(' ', "-")
+        .replace(|c: char| !c.is_alphanumeric() && c != '-', "");
+
+    let new_workflow = WorkflowInfo {
+        id: format!("custom:{}", slug),
+        name: workflow.name,
+        description: workflow.description,
+        chain: workflow.chain,
+        convergence_cycles: workflow.convergence_cycles,
+        enabled: true,
+        file_path: None,
+        tags: vec!["custom".to_string()],
+    };
+
+    let mut all = load_custom_workflows_file();
+    // Avoid duplicates
+    all.retain(|w| w.id != new_workflow.id);
+    all.push(new_workflow.clone());
+    save_custom_workflows_file(&all)?;
+
+    Ok(new_workflow)
+}
+
+#[command]
+pub fn remove_custom_workflow(workflow_id: String) -> Result<bool, String> {
+    let mut all = load_custom_workflows_file();
+    let before = all.len();
+    all.retain(|w| w.id != workflow_id);
+
+    if all.len() < before {
+        save_custom_workflows_file(&all)?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
+#[command]
+pub fn list_custom_workflows() -> Result<Vec<WorkflowInfo>, String> {
+    Ok(load_custom_workflows_file())
+}
+
+// ===== Update Operations =====
+
+#[command]
+pub fn update_custom_agent(agent_id: String, agent: AddAgentRequest) -> Result<PersonaInfo, String> {
+    let slug = agent_id.strip_prefix("custom:").unwrap_or(&agent_id);
+    let dir = get_custom_agents_dir();
+    let file_path = dir.join(format!("{}.md", slug));
+
+    if !file_path.exists() {
+        return Err(format!("Agent not found: {}", agent_id));
+    }
+
+    let mental_models_str = agent.mental_models
+        .iter()
+        .map(|m| format!("- {}", m))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let capabilities_str = agent.core_capabilities
+        .iter()
+        .map(|c| format!("- {}", c))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let content = format!(
+        "# {name}\n\n\
+        **Role:** {role}\n\n\
+        **Expertise:** {expertise}\n\n\
+        **Layer:** {layer}\n\n\
+        ## Mental Models\n\n\
+        {mental_models}\n\n\
+        ## Core Capabilities\n\n\
+        {capabilities}\n",
+        name = agent.name,
+        role = agent.role,
+        expertise = agent.expertise,
+        layer = agent.layer,
+        mental_models = mental_models_str,
+        capabilities = capabilities_str,
+    );
+
+    fs::write(&file_path, &content)
+        .map_err(|e| format!("Failed to write agent: {}", e))?;
+
+    Ok(PersonaInfo {
+        id: format!("custom:{}", slug),
+        name: agent.name,
+        role: agent.role,
+        expertise: agent.expertise,
+        mental_models: agent.mental_models,
+        core_capabilities: agent.core_capabilities,
+        enabled: true,
+        file_path: Some(file_path.display().to_string()),
+        tags: vec![agent.layer],
+    })
+}
+
+#[command]
+pub fn update_custom_skill(skill_id: String, skill: AddSkillRequest) -> Result<SkillInfo, String> {
+    let slug = skill_id.strip_prefix("custom:").unwrap_or(&skill_id);
+    let dir = get_custom_skills_dir();
+    let skill_dir = dir.join(slug);
+
+    if !skill_dir.exists() {
+        return Err(format!("Skill not found: {}", skill_id));
+    }
+
+    let skill_md_content = format!(
+        "# {}\n\n{}\n\n## Category\n\n{}\n\n## Content\n\n{}",
+        skill.name, skill.description, skill.category, skill.content
+    );
+    fs::write(skill_dir.join("SKILL.md"), &skill_md_content)
+        .map_err(|e| format!("Failed to write SKILL.md: {}", e))?;
+
+    Ok(SkillInfo {
+        id: format!("custom:{}", slug),
+        name: skill.name,
+        category: skill.category,
+        description: skill.description,
+        source: "custom".to_string(),
+        content_preview: skill.content.chars().take(200).collect(),
+        enabled: true,
+        file_path: Some(skill_dir.display().to_string()),
+        tags: vec![],
+    })
+}
+
+#[command]
+pub fn update_custom_workflow(workflow_id: String, workflow: AddWorkflowRequest) -> Result<WorkflowInfo, String> {
+    let mut all = load_custom_workflows_file();
+    let idx = all.iter().position(|w| w.id == workflow_id);
+
+    match idx {
+        Some(i) => {
+            let updated = WorkflowInfo {
+                id: workflow_id,
+                name: workflow.name,
+                description: workflow.description,
+                chain: workflow.chain,
+                convergence_cycles: workflow.convergence_cycles,
+                enabled: all[i].enabled,
+                file_path: None,
+                tags: vec!["custom".to_string()],
+            };
+            all[i] = updated.clone();
+            save_custom_workflows_file(&all)?;
+            Ok(updated)
+        }
+        None => Err(format!("Workflow not found: {}", workflow_id)),
+    }
+}

@@ -1,25 +1,15 @@
 import { useState, useCallback } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Search,
   Users,
   Wrench,
   GitBranch,
   FileText,
-  CheckCircle,
-  Circle,
   Plus,
-  Trash2,
-  Download,
   FolderSearch,
   Server,
-  Power,
-  AlertCircle,
-  Check,
-  Sparkles,
-  Globe,
-  Loader2,
-  ExternalLink,
+  Pencil,
 } from "lucide-react";
 import {
   listPersonas,
@@ -27,34 +17,36 @@ import {
   listWorkflows,
   listCustomAgents,
   listCustomSkills,
-  addCustomAgent,
-  addCustomSkill,
-  removeCustomAgent,
-  removeCustomSkill,
-  scanLocalSkills,
-  addMcpServer,
-  removeMcpServer,
-  getMcpPresets,
+  listCustomWorkflows,
   listMcpServers,
-  listSkillRepos,
-  addSkillRepo,
-  removeSkillRepo,
-  browseRepoSkills,
-  installRepoSkill,
+  scanLocalSkills,
+  getLibraryState,
 } from "@/lib/tauri";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import type {
   PersonaInfo,
   SkillInfo,
+  WorkflowInfo,
   ScannedSkill,
-  AddSkillRequest,
-  AddAgentRequest,
-  AgentLayer,
-  McpServerConfig,
-  McpPreset,
-  SkillRepo,
 } from "@/lib/types";
+import {
+  PersonaDetail,
+  SkillDetail,
+  AddAgentModal,
+  AddSkillModal,
+  AddWorkflowModal,
+  ScanResultsModal,
+  RepoManagerPanel,
+  McpTabContent,
+  ToggleSwitch,
+  DeleteButton,
+  WorkflowDeleteButton,
+  CategoryFilter,
+  LAYER_COLORS,
+  ROLE_TO_LAYER,
+  SOURCE_COLORS,
+} from "@/components/library";
 
 type Tab = "agents" | "skills" | "workflows" | "mcp";
 
@@ -62,55 +54,11 @@ type ModalMode =
   | { readonly kind: "none" }
   | { readonly kind: "addAgent" }
   | { readonly kind: "addSkill" }
+  | { readonly kind: "addWorkflow" }
+  | { readonly kind: "editAgent"; readonly agent: PersonaInfo }
+  | { readonly kind: "editSkill"; readonly skill: SkillInfo }
+  | { readonly kind: "editWorkflow"; readonly workflow: WorkflowInfo }
   | { readonly kind: "scanResults"; readonly results: readonly ScannedSkill[] };
-
-const LAYER_COLORS: Record<string, string> = {
-  strategy: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-  engineering: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  product: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  business: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-  intelligence: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200",
-};
-
-const ROLE_TO_LAYER: Record<string, string> = {
-  ceo: "strategy",
-  critic: "strategy",
-  fullstack: "engineering",
-  devops: "engineering",
-  qa: "engineering",
-  product: "product",
-  ui: "product",
-  marketing: "business",
-  operations: "business",
-  sales: "business",
-  cfo: "business",
-  research: "intelligence",
-};
-
-const SOURCE_COLORS: Record<string, string> = {
-  "auto-company": "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-  "real-skills": "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
-  ecc: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  custom: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
-};
-
-const MCP_CATEGORY_COLORS: Record<string, string> = {
-  search: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  tools: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  data: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-  communication: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-};
-
-const MCP_CATEGORY_DEFAULT_COLOR =
-  "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
-
-const AGENT_LAYERS: readonly AgentLayer[] = [
-  "strategy",
-  "engineering",
-  "product",
-  "business",
-  "intelligence",
-];
 
 // ===== Helpers =====
 
@@ -144,1247 +92,6 @@ function mergeSkills(
     }
   }
   return merged;
-}
-
-function getMcpCategoryColor(category: string): string {
-  return MCP_CATEGORY_COLORS[category] ?? MCP_CATEGORY_DEFAULT_COLOR;
-}
-
-// ===== Detail Panel: Persona =====
-
-function PersonaDetail({ persona, onClose }: {
-  readonly persona: PersonaInfo;
-  readonly onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="mx-4 max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground">
-            {persona.role[0].toUpperCase()}
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">{persona.name}</h2>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">{persona.role}</span>
-              <span className={cn("rounded-full px-2 py-0.5 text-xs", LAYER_COLORS[ROLE_TO_LAYER[persona.role] ?? "business"])}>
-                {ROLE_TO_LAYER[persona.role] ?? "business"}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <p className="mt-4 text-sm text-muted-foreground">{persona.expertise}</p>
-
-        {persona.mental_models.length > 0 && (
-          <div className="mt-4">
-            <h3 className="text-xs font-medium uppercase text-muted-foreground">Mental Models</h3>
-            <div className="mt-1 flex flex-wrap gap-1">
-              {persona.mental_models.map((m) => (
-                <span key={m} className="rounded-full bg-secondary px-2 py-0.5 text-xs">{m}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {persona.core_capabilities.length > 0 && (
-          <div className="mt-4">
-            <h3 className="text-xs font-medium uppercase text-muted-foreground">Core Capabilities</h3>
-            <ul className="mt-1 space-y-1">
-              {persona.core_capabilities.map((c) => (
-                <li key={c} className="text-sm text-muted-foreground">- {c}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {persona.tags.length > 0 && (
-          <div className="mt-4">
-            <h3 className="text-xs font-medium uppercase text-muted-foreground">Recommended Skills</h3>
-            <div className="mt-1 flex flex-wrap gap-1">
-              {persona.tags.map((t) => (
-                <span key={t} className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">{t}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {persona.file_path && (
-          <div className="mt-4 flex items-center gap-1 text-xs text-muted-foreground/60">
-            <FileText className="h-3 w-3" />
-            <span className="truncate">{persona.file_path}</span>
-          </div>
-        )}
-
-        <button
-          onClick={onClose}
-          className="mt-4 w-full rounded-md border border-border py-2 text-sm hover:bg-accent"
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ===== Detail Panel: Skill =====
-
-function SkillDetail({ skill, onClose }: {
-  readonly skill: SkillInfo;
-  readonly onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="mx-4 max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">{skill.name}</h2>
-          <span className={cn("rounded-full px-2 py-0.5 text-xs", SOURCE_COLORS[skill.source] ?? SOURCE_COLORS.custom)}>
-            {skill.source}
-          </span>
-        </div>
-
-        <span className="mt-1 inline-block rounded-full bg-secondary px-2 py-0.5 text-xs">{skill.category}</span>
-
-        <p className="mt-3 text-sm text-muted-foreground">{skill.description}</p>
-
-        {skill.content_preview && (
-          <div className="mt-4">
-            <h3 className="text-xs font-medium uppercase text-muted-foreground">Preview</h3>
-            <p className="mt-1 text-xs text-muted-foreground/80">{skill.content_preview}</p>
-          </div>
-        )}
-
-        {skill.file_path && (
-          <div className="mt-4 flex items-center gap-1 text-xs text-muted-foreground/60">
-            <FileText className="h-3 w-3" />
-            <span className="truncate">{skill.file_path}</span>
-          </div>
-        )}
-
-        <button
-          onClick={onClose}
-          className="mt-4 w-full rounded-md border border-border py-2 text-sm hover:bg-accent"
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ===== Add Agent Modal =====
-
-function AddAgentModal({ onClose }: { readonly onClose: () => void }) {
-  const { t } = useI18n();
-  const queryClient = useQueryClient();
-
-  const [name, setName] = useState("");
-  const [role, setRole] = useState("");
-  const [expertise, setExpertise] = useState("");
-  const [layer, setLayer] = useState<AgentLayer>("engineering");
-  const [mentalModels, setMentalModels] = useState("");
-  const [coreCapabilities, setCoreCapabilities] = useState("");
-
-  const mutation = useMutation({
-    mutationFn: (req: AddAgentRequest) => addCustomAgent(req),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["personas"] });
-      queryClient.invalidateQueries({ queryKey: ["customAgents"] });
-      onClose();
-    },
-  });
-
-  const handleSubmit = useCallback(() => {
-    const trimmedName = name.trim();
-    const trimmedRole = role.trim();
-    if (trimmedName === "" || trimmedRole === "") return;
-
-    const request: AddAgentRequest = {
-      name: trimmedName,
-      role: trimmedRole,
-      expertise: expertise.trim(),
-      layer,
-      mental_models: mentalModels
-        .split(",")
-        .map((s) => s.trim())
-        .filter((s) => s !== ""),
-      core_capabilities: coreCapabilities
-        .split(",")
-        .map((s) => s.trim())
-        .filter((s) => s !== ""),
-    };
-    mutation.mutate(request);
-  }, [name, role, expertise, layer, mentalModels, coreCapabilities, mutation]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div
-        className="mx-4 max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-lg font-semibold text-foreground">{t("library.addAgent")}</h2>
-
-        <div className="mt-4 space-y-3">
-          <div>
-            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.name")}</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.role")}</label>
-            <input
-              type="text"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.expertise")}</label>
-            <input
-              type="text"
-              value={expertise}
-              onChange={(e) => setExpertise(e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.layer")}</label>
-            <select
-              value={layer}
-              onChange={(e) => setLayer(e.target.value as AgentLayer)}
-              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              {AGENT_LAYERS.map((l) => (
-                <option key={l} value={l}>{l}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.mentalModels")}</label>
-            <input
-              type="text"
-              value={mentalModels}
-              onChange={(e) => setMentalModels(e.target.value)}
-              placeholder="model1, model2, model3"
-              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.coreCapabilities")}</label>
-            <input
-              type="text"
-              value={coreCapabilities}
-              onChange={(e) => setCoreCapabilities(e.target.value)}
-              placeholder="capability1, capability2"
-              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-        </div>
-
-        {mutation.isError && (
-          <p className="mt-3 text-sm text-red-500">{String(mutation.error)}</p>
-        )}
-
-        <div className="mt-5 flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-md border border-input bg-secondary py-2 text-sm hover:bg-secondary/80"
-          >
-            {t("library.cancel")}
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={mutation.isPending || name.trim() === "" || role.trim() === ""}
-            className="flex-1 rounded-md bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          >
-            {mutation.isPending ? t("common.loading") : t("library.create")}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ===== Add Skill Modal =====
-
-function AddSkillModal({ onClose }: { readonly onClose: () => void }) {
-  const { t } = useI18n();
-  const queryClient = useQueryClient();
-
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("");
-  const [content, setContent] = useState("");
-
-  const mutation = useMutation({
-    mutationFn: (req: AddSkillRequest) => addCustomSkill(req),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["skills"] });
-      queryClient.invalidateQueries({ queryKey: ["customSkills"] });
-      onClose();
-    },
-  });
-
-  const handleSubmit = useCallback(() => {
-    const trimmedName = name.trim();
-    if (trimmedName === "") return;
-
-    const request: AddSkillRequest = {
-      name: trimmedName,
-      description: description.trim(),
-      category: category.trim() || "custom",
-      content: content.trim(),
-    };
-    mutation.mutate(request);
-  }, [name, description, category, content, mutation]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div
-        className="mx-4 max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-lg font-semibold text-foreground">{t("library.addSkill")}</h2>
-
-        <div className="mt-4 space-y-3">
-          <div>
-            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.name")}</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.description")}</label>
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.category")}</label>
-            <input
-              type="text"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              placeholder="custom"
-              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-medium uppercase text-muted-foreground">{t("library.content")}</label>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={6}
-              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-        </div>
-
-        {mutation.isError && (
-          <p className="mt-3 text-sm text-red-500">{String(mutation.error)}</p>
-        )}
-
-        <div className="mt-5 flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-md border border-input bg-secondary py-2 text-sm hover:bg-secondary/80"
-          >
-            {t("library.cancel")}
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={mutation.isPending || name.trim() === ""}
-            className="flex-1 rounded-md bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          >
-            {mutation.isPending ? t("common.loading") : t("library.create")}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ===== Scan Results Modal =====
-
-function ScanResultsModal({
-  results,
-  onClose,
-}: {
-  readonly results: readonly ScannedSkill[];
-  readonly onClose: () => void;
-}) {
-  const { t } = useI18n();
-  const queryClient = useQueryClient();
-  const [importedIds, setImportedIds] = useState<ReadonlySet<string>>(new Set());
-
-  const importMutation = useMutation({
-    mutationFn: (scanned: ScannedSkill) => {
-      const request: AddSkillRequest = {
-        name: scanned.name,
-        description: scanned.description,
-        category: scanned.source,
-        content: "",
-      };
-      return addCustomSkill(request);
-    },
-    onSuccess: (_data, scanned) => {
-      queryClient.invalidateQueries({ queryKey: ["skills"] });
-      queryClient.invalidateQueries({ queryKey: ["customSkills"] });
-      setImportedIds((prev) => new Set([...prev, scanned.id]));
-    },
-  });
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div
-        className="mx-4 max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-lg font-semibold text-foreground">{t("library.scanResults")}</h2>
-
-        {results.length === 0 ? (
-          <p className="mt-4 text-sm text-muted-foreground">{t("library.noScanResults")}</p>
-        ) : (
-          <div className="mt-4 space-y-2">
-            {results.map((skill) => {
-              const isImported = importedIds.has(skill.id);
-              return (
-                <div
-                  key={skill.id}
-                  className="flex items-center justify-between rounded-md border border-input bg-secondary p-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-sm text-foreground">{skill.name}</p>
-                      <span className="rounded-full bg-secondary px-2 py-0.5 text-xs">
-                        {skill.source}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{skill.full_path}</p>
-                  </div>
-                  <button
-                    onClick={() => importMutation.mutate(skill)}
-                    disabled={isImported || importMutation.isPending}
-                    className={cn(
-                      "ml-3 flex shrink-0 items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                      isImported
-                        ? "bg-green-900 text-green-200"
-                        : "bg-primary text-primary-foreground hover:bg-primary/90",
-                    )}
-                  >
-                    {isImported ? (
-                      <>
-                        <CheckCircle className="h-3 w-3" />
-                        {t("library.imported")}
-                      </>
-                    ) : (
-                      <>
-                        <Download className="h-3 w-3" />
-                        {t("library.import")}
-                      </>
-                    )}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <button
-          onClick={onClose}
-          className="mt-5 w-full rounded-md border border-input bg-secondary py-2 text-sm hover:bg-secondary/80"
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ===== Category Filter =====
-
-function CategoryFilter({
-  categories,
-  selected,
-  onSelect,
-}: {
-  readonly categories: readonly string[];
-  readonly selected: string;
-  readonly onSelect: (cat: string) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-1">
-      <button
-        onClick={() => onSelect("")}
-        className={cn(
-          "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-          selected === "" ? "bg-primary text-primary-foreground" : "bg-secondary hover:bg-secondary/80",
-        )}
-      >
-        All
-      </button>
-      {categories.map((cat) => (
-        <button
-          key={cat}
-          onClick={() => onSelect(cat)}
-          className={cn(
-            "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-            selected === cat ? "bg-primary text-primary-foreground" : "bg-secondary hover:bg-secondary/80",
-          )}
-        >
-          {cat}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ===== Delete Button =====
-
-function DeleteButton({
-  itemId,
-  itemType,
-}: {
-  readonly itemId: string;
-  readonly itemType: "agent" | "skill";
-}) {
-  const { t } = useI18n();
-  const queryClient = useQueryClient();
-
-  const deleteMutation = useMutation({
-    mutationFn: () =>
-      itemType === "agent"
-        ? removeCustomAgent(itemId)
-        : removeCustomSkill(itemId),
-    onSuccess: () => {
-      if (itemType === "agent") {
-        queryClient.invalidateQueries({ queryKey: ["personas"] });
-        queryClient.invalidateQueries({ queryKey: ["customAgents"] });
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["skills"] });
-        queryClient.invalidateQueries({ queryKey: ["customSkills"] });
-      }
-    },
-  });
-
-  const handleDelete = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (window.confirm(t("library.removeConfirm"))) {
-        deleteMutation.mutate();
-      }
-    },
-    [deleteMutation, t],
-  );
-
-  return (
-    <button
-      onClick={handleDelete}
-      disabled={deleteMutation.isPending}
-      className="rounded-md p-1.5 text-muted-foreground/60 transition-colors hover:bg-red-900/40 hover:text-red-400"
-      title={t("common.delete")}
-    >
-      <Trash2 className="h-3.5 w-3.5" />
-    </button>
-  );
-}
-
-// ===== Repo Manager Panel =====
-
-function AddRepoForm({ onClose }: { readonly onClose: () => void }) {
-  const { t } = useI18n();
-  const queryClient = useQueryClient();
-
-  const [owner, setOwner] = useState("");
-  const [repo, setRepo] = useState("");
-  const [branch, setBranch] = useState("main");
-  const [path, setPath] = useState("");
-  const [repoName, setRepoName] = useState("");
-
-  const mutation = useMutation({
-    mutationFn: (r: SkillRepo) => addSkillRepo(r),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["skill-repos"] });
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
-      onClose();
-    },
-  });
-
-  const handleSubmit = useCallback(() => {
-    const trimmedOwner = owner.trim();
-    const trimmedRepo = repo.trim();
-    if (trimmedOwner === "" || trimmedRepo === "") return;
-
-    const newRepo: SkillRepo = {
-      id: `${trimmedOwner}-${trimmedRepo}-${Date.now()}`,
-      name: repoName.trim() || `${trimmedOwner}/${trimmedRepo}`,
-      owner: trimmedOwner,
-      repo: trimmedRepo,
-      branch: branch.trim() || "main",
-      path: path.trim(),
-      enabled: true,
-    };
-    mutation.mutate(newRepo);
-  }, [owner, repo, branch, path, repoName, mutation]);
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={onClose}
-    >
-      <div
-        className="mx-4 w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-lg font-semibold text-foreground">
-          {t("library.addRepo")}
-        </h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {t("library.repoHint")}
-        </p>
-
-        <div className="mt-4 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium uppercase text-muted-foreground">
-                {t("library.repoOwner")}
-              </label>
-              <input
-                type="text"
-                value={owner}
-                onChange={(e) => setOwner(e.target.value)}
-                placeholder="anthropics"
-                className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium uppercase text-muted-foreground">
-                {t("library.repoName")}
-              </label>
-              <input
-                type="text"
-                value={repo}
-                onChange={(e) => setRepo(e.target.value)}
-                placeholder="skills"
-                className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium uppercase text-muted-foreground">
-                {t("library.repoBranch")}
-              </label>
-              <input
-                type="text"
-                value={branch}
-                onChange={(e) => setBranch(e.target.value)}
-                placeholder="main"
-                className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium uppercase text-muted-foreground">
-                {t("library.repoPath")}
-              </label>
-              <input
-                type="text"
-                value={path}
-                onChange={(e) => setPath(e.target.value)}
-                placeholder="skills"
-                className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium uppercase text-muted-foreground">
-              {t("library.name")}
-            </label>
-            <input
-              type="text"
-              value={repoName}
-              onChange={(e) => setRepoName(e.target.value)}
-              placeholder={
-                owner && repo ? `${owner}/${repo}` : "Display name"
-              }
-              className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-        </div>
-
-        {mutation.isError && (
-          <p className="mt-3 text-sm text-red-500">{String(mutation.error)}</p>
-        )}
-
-        <div className="mt-5 flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-md border border-input bg-secondary py-2 text-sm hover:bg-secondary/80"
-          >
-            {t("library.cancel")}
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={
-              mutation.isPending || owner.trim() === "" || repo.trim() === ""
-            }
-            className="flex-1 rounded-md bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          >
-            {mutation.isPending ? t("common.loading") : t("library.create")}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RepoBrowser({
-  repoId,
-  repoName,
-}: {
-  readonly repoId: string;
-  readonly repoName: string;
-}) {
-  const { t } = useI18n();
-  const queryClient = useQueryClient();
-  const [installedPaths, setInstalledPaths] = useState<ReadonlySet<string>>(
-    new Set(),
-  );
-
-  const {
-    data: items,
-    isLoading,
-    isError,
-    error,
-  } = useQuery({
-    queryKey: ["repo-skills", repoId],
-    queryFn: () => browseRepoSkills(repoId),
-  });
-
-  const installMutation = useMutation({
-    mutationFn: ({
-      rId,
-      skillPath,
-    }: {
-      readonly rId: string;
-      readonly skillPath: string;
-    }) => installRepoSkill(rId, skillPath),
-    onSuccess: (_data, { skillPath }) => {
-      queryClient.invalidateQueries({ queryKey: ["skills"] });
-      queryClient.invalidateQueries({ queryKey: ["customSkills"] });
-      setInstalledPaths((prev) => new Set([...prev, skillPath]));
-    },
-  });
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        {t("library.browsing")}
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-        <AlertCircle className="h-4 w-4" />
-        <span>{String(error)}</span>
-      </div>
-    );
-  }
-
-  if (!items || items.length === 0) {
-    return (
-      <p className="py-2 text-sm text-muted-foreground">
-        No skills found in this repository.
-      </p>
-    );
-  }
-
-  return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-medium text-muted-foreground">
-        {repoName} — {items.length} skills
-      </p>
-      {items.map((item) => {
-        const isInstalled = installedPaths.has(item.path);
-        return (
-          <div
-            key={item.path}
-            className="flex items-center gap-3 rounded-md border border-input bg-secondary p-2.5"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-foreground">{item.name}</p>
-              {item.description && (
-                <p className="truncate text-xs text-muted-foreground">
-                  {item.description}
-                </p>
-              )}
-            </div>
-            <button
-              onClick={() =>
-                installMutation.mutate({
-                  rId: repoId,
-                  skillPath: item.path,
-                })
-              }
-              disabled={isInstalled || installMutation.isPending}
-              className={cn(
-                "flex shrink-0 items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                isInstalled
-                  ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                  : "bg-primary text-primary-foreground hover:bg-primary/90",
-              )}
-            >
-              {isInstalled ? (
-                <>
-                  <Check className="h-3 w-3" />
-                  {t("library.installed")}
-                </>
-              ) : (
-                <>
-                  <Download className="h-3 w-3" />
-                  {t("library.installSkill")}
-                </>
-              )}
-            </button>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function RepoManagerPanel() {
-  const { t } = useI18n();
-  const queryClient = useQueryClient();
-  const [showAddRepo, setShowAddRepo] = useState(false);
-  const [browsingRepoId, setBrowsingRepoId] = useState<string | null>(null);
-
-  const { data: repos = [] } = useQuery({
-    queryKey: ["skill-repos"],
-    queryFn: listSkillRepos,
-  });
-
-  const removeMutation = useMutation({
-    mutationFn: (repoId: string) => removeSkillRepo(repoId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["skill-repos"] });
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
-    },
-  });
-
-  return (
-    <div className="space-y-3 rounded-lg border border-border bg-card p-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Globe className="h-5 w-5 text-muted-foreground" />
-          <div>
-            <h2 className="font-semibold text-foreground">
-              {t("library.repos")}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {t("library.reposDesc")}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={() => setShowAddRepo(true)}
-          className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          {t("library.addRepo")}
-        </button>
-      </div>
-
-      {repos.length === 0 ? (
-        <div className="flex items-center gap-2 rounded-md border border-dashed border-input p-4 text-sm text-muted-foreground">
-          <AlertCircle className="h-4 w-4" />
-          {t("library.noRepos")}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {repos.map((r) => (
-            <div key={r.id} className="space-y-2">
-              <div className="flex items-center gap-3 rounded-md border border-input bg-secondary p-3">
-                <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-foreground">{r.name}</p>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span>
-                      {r.owner}/{r.repo}
-                    </span>
-                    {r.branch !== "main" && (
-                      <span className="rounded bg-secondary px-1 py-0.5">
-                        {r.branch}
-                      </span>
-                    )}
-                    {r.path && (
-                      <span className="rounded bg-secondary px-1 py-0.5">
-                        /{r.path}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <a
-                  href={`https://github.com/${r.owner}/${r.repo}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-                <button
-                  onClick={() =>
-                    setBrowsingRepoId(
-                      browsingRepoId === r.id ? null : r.id,
-                    )
-                  }
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
-                    browsingRepoId === r.id
-                      ? "bg-primary text-primary-foreground"
-                      : "border border-input hover:bg-secondary",
-                  )}
-                >
-                  <FolderSearch className="h-3 w-3" />
-                  {t("library.browseRepo")}
-                </button>
-                <button
-                  onClick={() => removeMutation.mutate(r.id)}
-                  disabled={removeMutation.isPending}
-                  className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              {browsingRepoId === r.id && (
-                <div className="ml-6">
-                  <RepoBrowser repoId={r.id} repoName={r.name} />
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {showAddRepo && (
-        <AddRepoForm onClose={() => setShowAddRepo(false)} />
-      )}
-    </div>
-  );
-}
-
-// ===== MCP Preset Card =====
-
-function McpPresetCard({
-  preset,
-  isAdded,
-  onAdd,
-}: {
-  readonly preset: McpPreset;
-  readonly isAdded: boolean;
-  readonly onAdd: () => void;
-}) {
-  const { t } = useI18n();
-
-  return (
-    <div className="flex flex-col gap-2 rounded-md border border-input bg-secondary p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-medium text-foreground">{preset.name}</p>
-            <span
-              className={cn(
-                "rounded-full px-2 py-0.5 text-xs font-medium",
-                getMcpCategoryColor(preset.category),
-              )}
-            >
-              {preset.category}
-            </span>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {preset.description}
-          </p>
-        </div>
-        <button
-          onClick={onAdd}
-          disabled={isAdded}
-          className={cn(
-            "inline-flex shrink-0 items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-70",
-            isAdded
-              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-              : "bg-primary text-primary-foreground hover:bg-primary/90",
-          )}
-        >
-          {isAdded ? (
-            <>
-              <Check className="h-3 w-3" />
-              {t("settings.mcpAdded")}
-            </>
-          ) : (
-            <>
-              <Plus className="h-3 w-3" />
-              Add
-            </>
-          )}
-        </button>
-      </div>
-      {preset.env_keys.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {preset.env_keys.map((key) => (
-            <span
-              key={key}
-              className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
-            >
-              {key}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ===== MCP Server Row =====
-
-function McpServerRow({
-  server,
-  onRemove,
-  onToggle,
-}: {
-  readonly server: McpServerConfig;
-  readonly onRemove: (id: string) => void;
-  readonly onToggle: (id: string, enabled: boolean) => void;
-}) {
-  const typeColor = (serverType: string) => {
-    switch (serverType) {
-      case "stdio":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
-      case "sse":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
-    }
-  };
-
-  const envEntries = Object.entries(server.env);
-
-  return (
-    <div className="space-y-2 rounded-md border border-input bg-secondary p-4">
-      <div className="flex items-center gap-3">
-        <div
-          className={cn(
-            "h-3 w-3 rounded-full",
-            server.enabled ? "bg-green-500" : "bg-gray-400",
-          )}
-        />
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <p className="font-medium text-foreground">{server.name}</p>
-            <span
-              className={cn(
-                "rounded-full px-2 py-0.5 text-xs font-medium",
-                typeColor(server.server_type),
-              )}
-            >
-              {server.server_type}
-            </span>
-          </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {server.command} {server.args.join(" ")}
-          </p>
-        </div>
-        <button
-          onClick={() => onToggle(server.id, !server.enabled)}
-          className={cn(
-            "rounded-md p-2 transition-colors",
-            server.enabled
-              ? "text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
-              : "text-muted-foreground hover:bg-accent",
-          )}
-          title={server.enabled ? "Disable" : "Enable"}
-        >
-          <Power className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => onRemove(server.id)}
-          className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
-      {envEntries.length > 0 && (
-        <div className="ml-6 space-y-1">
-          {envEntries.map(([key, value]) => (
-            <div key={key} className="flex items-center gap-2 text-xs">
-              <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-muted-foreground">
-                {key}
-              </span>
-              <span className="truncate text-muted-foreground">
-                {value || "(not set)"}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ===== MCP Tab Content =====
-
-function McpTabContent() {
-  const { t } = useI18n();
-  const queryClient = useQueryClient();
-  const [addedPresetIds, setAddedPresetIds] = useState<ReadonlySet<string>>(
-    new Set(),
-  );
-
-  const { data: mcpServers = [] } = useQuery({
-    queryKey: ["mcp-servers"],
-    queryFn: listMcpServers,
-  });
-
-  const { data: mcpPresets = [] } = useQuery({
-    queryKey: ["mcp-presets"],
-    queryFn: getMcpPresets,
-  });
-
-  const addServerMutation = useMutation({
-    mutationFn: (server: McpServerConfig) => addMcpServer(server),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["mcp-servers"] });
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
-    },
-  });
-
-  const removeServerMutation = useMutation({
-    mutationFn: (serverId: string) => removeMcpServer(serverId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["mcp-servers"] });
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
-    },
-  });
-
-  const handleAddPreset = useCallback(
-    (preset: McpPreset) => {
-      const envRecord: Record<string, string> = {};
-      for (const key of preset.env_keys) {
-        envRecord[key] = "";
-      }
-      const server: McpServerConfig = {
-        id: crypto.randomUUID(),
-        name: preset.name,
-        server_type: preset.server_type,
-        command: preset.command,
-        args: [...preset.args],
-        url: "",
-        env: envRecord,
-        enabled: true,
-        tools: [],
-      };
-      addServerMutation.mutate(server);
-      setAddedPresetIds((prev) => new Set([...prev, preset.id]));
-    },
-    [addServerMutation],
-  );
-
-  const handleRemoveServer = useCallback(
-    (serverId: string) => {
-      removeServerMutation.mutate(serverId);
-    },
-    [removeServerMutation],
-  );
-
-  const handleToggleServer = useCallback(
-    (serverId: string, enabled: boolean) => {
-      const server = mcpServers.find((s) => s.id === serverId);
-      if (!server) return;
-      const updated: McpServerConfig = {
-        ...server,
-        enabled,
-      };
-      addServerMutation.mutate(updated);
-    },
-    [mcpServers, addServerMutation],
-  );
-
-  return (
-    <div className="space-y-6">
-      {/* Presets - Quick Add */}
-      {mcpPresets.length > 0 && (
-        <div className="space-y-3 rounded-lg border border-border bg-card p-6">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <h2 className="font-semibold text-foreground">{t("settings.mcpPresets")}</h2>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {mcpPresets.map((preset) => (
-              <McpPresetCard
-                key={preset.id}
-                preset={preset}
-                isAdded={addedPresetIds.has(preset.id)}
-                onAdd={() => handleAddPreset(preset)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Configured Servers */}
-      <div className="space-y-3 rounded-lg border border-border bg-card p-6">
-        <div className="flex items-center gap-2">
-          <Server className="h-5 w-5 text-muted-foreground" />
-          <div>
-            <h2 className="font-semibold text-foreground">{t("settings.mcpConfigured")}</h2>
-            <p className="text-sm text-muted-foreground">
-              {t("settings.mcpDesc")}
-            </p>
-          </div>
-        </div>
-        {mcpServers.length > 0 ? (
-          <div className="space-y-2">
-            {mcpServers.map((server) => (
-              <McpServerRow
-                key={server.id}
-                server={server}
-                onRemove={handleRemoveServer}
-                onToggle={handleToggleServer}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 rounded-md border border-dashed border-input p-4 text-sm text-muted-foreground">
-            <AlertCircle className="h-4 w-4" />
-            {t("settings.mcpNoServers")}
-          </div>
-        )}
-      </div>
-    </div>
-  );
 }
 
 // ===== Main Library =====
@@ -1427,6 +134,11 @@ export function Library() {
     queryFn: listCustomSkills,
   });
 
+  const { data: customWorkflows } = useQuery({
+    queryKey: ["custom-workflows"],
+    queryFn: listCustomWorkflows,
+  });
+
   // ---- MCP server count for tab badge ----
 
   const { data: mcpServers } = useQuery({
@@ -1434,10 +146,40 @@ export function Library() {
     queryFn: listMcpServers,
   });
 
+  // ---- Library toggle state ----
+
+  const { data: libraryState, refetch: refetchLibraryState } = useQuery({
+    queryKey: ["library-state"],
+    queryFn: getLibraryState,
+  });
+
+  const isPersonaDisabled = useCallback(
+    (id: string) => libraryState?.disabled_personas.includes(id) ?? false,
+    [libraryState],
+  );
+
+  const isSkillDisabled = useCallback(
+    (id: string) => libraryState?.disabled_skills.includes(id) ?? false,
+    [libraryState],
+  );
+
+  const isWorkflowDisabled = useCallback(
+    (id: string) => libraryState?.disabled_workflows.includes(id) ?? false,
+    [libraryState],
+  );
+
+  const handleToggled = useCallback(() => {
+    refetchLibraryState();
+  }, [refetchLibraryState]);
+
   // ---- Merged lists ----
 
   const allPersonas = mergePersonas(personas, customAgents);
   const allSkills = mergeSkills(skills, customSkills);
+  const allWorkflows = [
+    ...(workflows ?? []),
+    ...(customWorkflows ?? []),
+  ];
 
   // ---- Scan mutation ----
 
@@ -1450,22 +192,31 @@ export function Library() {
 
   // ---- Filtering ----
 
+  const lowerSearch = search.toLowerCase();
+
   const filteredPersonas = allPersonas.filter(
     (p) =>
-      (p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.role.toLowerCase().includes(search.toLowerCase())) &&
+      (p.name.toLowerCase().includes(lowerSearch) ||
+        p.role.toLowerCase().includes(lowerSearch)) &&
       (selectedCategory === "" || ROLE_TO_LAYER[p.role] === selectedCategory),
   );
 
   const filteredSkills = allSkills.filter(
     (s) =>
-      (s.name.toLowerCase().includes(search.toLowerCase()) ||
-        s.category.toLowerCase().includes(search.toLowerCase()) ||
-        s.description.toLowerCase().includes(search.toLowerCase())) &&
+      (s.name.toLowerCase().includes(lowerSearch) ||
+        s.category.toLowerCase().includes(lowerSearch) ||
+        s.description.toLowerCase().includes(lowerSearch)) &&
       (selectedCategory === "" || s.source === selectedCategory || s.category === selectedCategory),
   );
 
-  // Extract unique categories for the filter
+  const filteredWorkflows = allWorkflows.filter(
+    (w) =>
+      w.name.toLowerCase().includes(lowerSearch) ||
+      w.description.toLowerCase().includes(lowerSearch) ||
+      w.chain.some((role) => role.toLowerCase().includes(lowerSearch)),
+  );
+
+  // Extract unique categories for filters
   const layerCategories = [...new Set(allPersonas.map((p) => ROLE_TO_LAYER[p.role]).filter(Boolean))];
   const skillCategories = [...new Set(allSkills.map((s) => s.source))];
 
@@ -1480,9 +231,7 @@ export function Library() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">{t("library.title")}</h1>
-        <p className="text-muted-foreground">
-          {t("library.subtitle")}
-        </p>
+        <p className="text-muted-foreground">{t("library.subtitle")}</p>
       </div>
 
       {/* Tabs */}
@@ -1491,7 +240,7 @@ export function Library() {
           [
             { id: "agents" as Tab, icon: Users, label: t("library.agents"), count: allPersonas.length },
             { id: "skills" as Tab, icon: Wrench, label: t("library.skills"), count: allSkills.length },
-            { id: "workflows" as Tab, icon: GitBranch, label: t("library.workflows"), count: workflows?.length },
+            { id: "workflows" as Tab, icon: GitBranch, label: t("library.workflows"), count: allWorkflows.length },
             { id: "mcp" as Tab, icon: Server, label: t("settings.mcpServers"), count: mcpServers?.length },
           ] as const
         ).map(({ id, icon: Icon, label, count }) => (
@@ -1508,15 +257,13 @@ export function Library() {
             <Icon className="h-4 w-4" />
             {label}
             {count !== undefined && (
-              <span className="rounded-full bg-secondary px-2 py-0.5 text-xs">
-                {count}
-              </span>
+              <span className="rounded-full bg-secondary px-2 py-0.5 text-xs">{count}</span>
             )}
           </button>
         ))}
       </div>
 
-      {/* Search + Action Buttons + Category Filter (not shown for MCP tab) */}
+      {/* Search + Action Buttons + Category Filter */}
       {tab !== "mcp" && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
@@ -1560,6 +307,16 @@ export function Library() {
                 </button>
               </>
             )}
+
+            {tab === "workflows" && (
+              <button
+                onClick={() => setModal({ kind: "addWorkflow" })}
+                className="flex shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                <Plus className="h-4 w-4" />
+                {t("library.addWorkflow")}
+              </button>
+            )}
           </div>
 
           {tab === "agents" && layerCategories.length > 0 && (
@@ -1571,150 +328,170 @@ export function Library() {
         </div>
       )}
 
-      {/* Content */}
+      {/* Agents Tab */}
       {tab === "agents" && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredPersonas.map((p) => (
-            <div
-              key={p.id}
-              className="cursor-pointer rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-md"
-              onClick={() => setSelectedPersona(p)}
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold">
-                  {p.role[0].toUpperCase()}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
+          {filteredPersonas.map((p) => {
+            const disabled = isPersonaDisabled(p.id);
+            const isCustom = p.id.startsWith("custom:");
+            return (
+              <div
+                key={p.id}
+                className={cn(
+                  "cursor-pointer rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-md",
+                  disabled && "opacity-50",
+                )}
+                onClick={() => setSelectedPersona(p)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold">
+                    {p.role[0].toUpperCase()}
+                  </div>
+                  <div className="flex-1">
                     <p className="font-semibold text-foreground">{p.name}</p>
-                    {p.enabled ? (
-                      <CheckCircle className="h-3 w-3 text-green-500" />
-                    ) : (
-                      <Circle className="h-3 w-3 text-gray-400" />
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">{p.role}</span>
+                      <span className={cn("rounded-full px-2 py-0.5 text-xs", LAYER_COLORS[ROLE_TO_LAYER[p.role] ?? "business"])}>
+                        {ROLE_TO_LAYER[p.role] ?? "business"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <ToggleSwitch itemType="persona" itemId={p.id} enabled={!disabled} onToggled={handleToggled} />
+                    {p.file_path && <FileText className="h-3.5 w-3.5 text-muted-foreground/40" />}
+                    {isCustom && (
+                      <>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setModal({ kind: "editAgent", agent: p }); }}
+                          className="rounded-md p-1.5 text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
+                          title={t("library.editAgent")}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <DeleteButton itemId={p.id} itemType="agent" />
+                      </>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      {p.role}
-                    </span>
-                    <span
-                      className={cn(
-                        "rounded-full px-2 py-0.5 text-xs",
-                        LAYER_COLORS[ROLE_TO_LAYER[p.role] ?? "business"],
-                      )}
-                    >
-                      {ROLE_TO_LAYER[p.role] ?? "business"}
-                    </span>
+                </div>
+                <p className="mt-3 text-sm text-muted-foreground line-clamp-3">{p.expertise}</p>
+                {p.core_capabilities.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1">
+                    {p.core_capabilities.slice(0, 3).map((cap) => (
+                      <span key={cap} className="rounded-full bg-secondary px-2 py-0.5 text-xs">{cap}</span>
+                    ))}
                   </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  {p.file_path && (
-                    <FileText className="h-3.5 w-3.5 text-muted-foreground/40" />
-                  )}
-                  {p.id.startsWith("custom:") && (
-                    <DeleteButton itemId={p.id} itemType="agent" />
-                  )}
-                </div>
+                )}
               </div>
-              <p className="mt-3 text-sm text-muted-foreground line-clamp-3">
-                {p.expertise}
-              </p>
-              {p.core_capabilities.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1">
-                  {p.core_capabilities.slice(0, 3).map((cap) => (
-                    <span
-                      key={cap}
-                      className="rounded-full bg-secondary px-2 py-0.5 text-xs"
-                    >
-                      {cap}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
+      {/* Skills Tab */}
       {tab === "skills" && (
         <div className="space-y-6">
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {filteredSkills.map((s) => (
-              <div
-                key={s.id}
-                className="cursor-pointer rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-md"
-                onClick={() => setSelectedSkill(s)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-foreground">{s.name}</p>
-                    {s.file_path && (
-                      <FileText className="h-3 w-3 text-muted-foreground/40" />
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span
-                      className={cn(
-                        "rounded-full px-2 py-0.5 text-xs",
-                        SOURCE_COLORS[s.source] ?? SOURCE_COLORS.custom,
+            {filteredSkills.map((s) => {
+              const disabled = isSkillDisabled(s.id);
+              const isCustom = s.id.startsWith("custom:");
+              return (
+                <div
+                  key={s.id}
+                  className={cn(
+                    "cursor-pointer rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-md",
+                    disabled && "opacity-50",
+                  )}
+                  onClick={() => setSelectedSkill(s)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-foreground">{s.name}</p>
+                      {s.file_path && <FileText className="h-3 w-3 text-muted-foreground/40" />}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <ToggleSwitch itemType="skill" itemId={s.id} enabled={!disabled} onToggled={handleToggled} />
+                      <span className={cn("rounded-full px-2 py-0.5 text-xs", SOURCE_COLORS[s.source] ?? SOURCE_COLORS.custom)}>
+                        {s.source}
+                      </span>
+                      {isCustom && (
+                        <>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setModal({ kind: "editSkill", skill: s }); }}
+                            className="rounded-md p-1.5 text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
+                            title={t("library.editSkill")}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <DeleteButton itemId={s.id} itemType="skill" />
+                        </>
                       )}
-                    >
-                      {s.source}
-                    </span>
-                    {s.id.startsWith("custom:") && (
-                      <DeleteButton itemId={s.id} itemType="skill" />
-                    )}
+                    </div>
                   </div>
+                  <span className="mt-1 inline-block rounded-full bg-secondary px-2 py-0.5 text-xs">{s.category}</span>
+                  <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{s.description}</p>
                 </div>
-                <span className="mt-1 inline-block rounded-full bg-secondary px-2 py-0.5 text-xs">{s.category}</span>
-                <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
-                  {s.description}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <RepoManagerPanel />
         </div>
       )}
 
+      {/* Workflows Tab */}
       {tab === "workflows" && (
         <div className="space-y-4">
-          {workflows?.map((w) => (
-            <div key={w.id} className="rounded-lg border border-border bg-card p-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-foreground">{w.name}</h3>
-                {w.file_path && (
-                  <FileText className="h-3.5 w-3.5 text-muted-foreground/40" />
-                )}
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {w.description}
-              </p>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {w.chain.map((role, i) => (
-                  <div key={`${role}-${i}`} className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        "rounded-full px-3 py-1 text-xs font-medium",
-                        LAYER_COLORS[ROLE_TO_LAYER[role] ?? "business"],
-                      )}
-                    >
-                      {role}
-                    </span>
-                    {i < w.chain.length - 1 && (
-                      <span className="text-muted-foreground">&rarr;</span>
+          {filteredWorkflows.map((w) => {
+            const disabled = isWorkflowDisabled(w.id);
+            const isCustom = w.id.startsWith("custom:");
+            return (
+              <div key={w.id} className={cn("rounded-lg border border-border bg-card p-4", disabled && "opacity-50")}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-foreground">{w.name}</h3>
+                    {isCustom && (
+                      <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">custom</span>
                     )}
                   </div>
-                ))}
+                  <div className="flex items-center gap-2">
+                    <ToggleSwitch itemType="workflow" itemId={w.id} enabled={!disabled} onToggled={handleToggled} />
+                    {w.file_path && <FileText className="h-3.5 w-3.5 text-muted-foreground/40" />}
+                    {isCustom && (
+                      <>
+                        <button
+                          onClick={() => setModal({ kind: "editWorkflow", workflow: w })}
+                          className="rounded-md p-1.5 text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
+                          title={t("library.editWorkflow")}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <WorkflowDeleteButton workflowId={w.id} />
+                      </>
+                    )}
+                  </div>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">{w.description}</p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {w.chain.map((role, i) => (
+                    <div key={`${role}-${i}`} className="flex items-center gap-2">
+                      <span className={cn("rounded-full px-3 py-1 text-xs font-medium", LAYER_COLORS[ROLE_TO_LAYER[role] ?? "business"])}>
+                        {role}
+                      </span>
+                      {i < w.chain.length - 1 && (
+                        <span className="text-muted-foreground">&rarr;</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {t("library.convergence")}: {w.convergence_cycles} {t("common.cycles")}
+                </p>
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {t("library.convergence")}: {w.convergence_cycles} {t("common.cycles")}
-              </p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
+      {/* MCP Tab */}
       {tab === "mcp" && (
         <div className="space-y-6">
           <McpTabContent />
@@ -1734,8 +511,20 @@ export function Library() {
       {modal.kind === "addAgent" && (
         <AddAgentModal onClose={() => setModal({ kind: "none" })} />
       )}
+      {modal.kind === "editAgent" && (
+        <AddAgentModal onClose={() => setModal({ kind: "none" })} editAgent={modal.agent} />
+      )}
       {modal.kind === "addSkill" && (
         <AddSkillModal onClose={() => setModal({ kind: "none" })} />
+      )}
+      {modal.kind === "editSkill" && (
+        <AddSkillModal onClose={() => setModal({ kind: "none" })} editSkill={modal.skill} />
+      )}
+      {modal.kind === "addWorkflow" && (
+        <AddWorkflowModal onClose={() => setModal({ kind: "none" })} />
+      )}
+      {modal.kind === "editWorkflow" && (
+        <AddWorkflowModal onClose={() => setModal({ kind: "none" })} editWorkflow={modal.workflow} />
       )}
       {modal.kind === "scanResults" && (
         <ScanResultsModal

@@ -14,13 +14,18 @@ import type {
   AiProvider,
   SystemInfo,
   DetectedProvider,
+  ResolvedRuntimeConfig,
   McpServerConfig,
   McpPreset,
   ScannedSkill,
   AddSkillRequest,
   AddAgentRequest,
+  AddWorkflowRequest,
   SkillRepo,
   RepoItem,
+  LibraryState,
+  ProjectRuntimeOverride,
+  ProjectEvent,
 } from "./types";
 
 // ===== Bootstrap Commands =====
@@ -115,6 +120,22 @@ export async function listWorkflows(): Promise<readonly WorkflowInfo[]> {
   return invoke("list_workflows");
 }
 
+export async function getSkillContent(skillId: string): Promise<string> {
+  return invoke("get_skill_content", { skillId });
+}
+
+export async function toggleLibraryItem(
+  itemType: string,
+  itemId: string,
+  enabled: boolean,
+): Promise<boolean> {
+  return invoke("toggle_library_item", { itemType, itemId, enabled });
+}
+
+export async function getLibraryState(): Promise<LibraryState> {
+  return invoke("get_library_state");
+}
+
 // ===== Project Commands =====
 
 export async function listProjects(): Promise<readonly Project[]> {
@@ -189,6 +210,13 @@ export async function checkEngine(engine: string): Promise<string> {
   return invoke("check_engine", { engine });
 }
 
+export async function resolveRuntimeConfig(
+  engine: string,
+  model: string,
+): Promise<ResolvedRuntimeConfig> {
+  return invoke("resolve_runtime_config", { engine, model });
+}
+
 // ===== Provider Detection Commands =====
 
 export async function detectProviders(): Promise<readonly DetectedProvider[]> {
@@ -255,6 +283,32 @@ export async function listCustomSkills(): Promise<readonly SkillInfo[]> {
   return invoke("list_custom_skills");
 }
 
+export async function addCustomWorkflow(workflow: AddWorkflowRequest): Promise<WorkflowInfo> {
+  return invoke("add_custom_workflow", { workflow });
+}
+
+export async function removeCustomWorkflow(workflowId: string): Promise<boolean> {
+  return invoke("remove_custom_workflow", { workflowId });
+}
+
+export async function listCustomWorkflows(): Promise<readonly WorkflowInfo[]> {
+  return invoke("list_custom_workflows");
+}
+
+// ===== Update Operations =====
+
+export async function updateCustomAgent(agentId: string, agent: AddAgentRequest): Promise<PersonaInfo> {
+  return invoke("update_custom_agent", { agentId, agent });
+}
+
+export async function updateCustomSkill(skillId: string, skill: AddSkillRequest): Promise<SkillInfo> {
+  return invoke("update_custom_skill", { skillId, skill });
+}
+
+export async function updateCustomWorkflow(workflowId: string, workflow: AddWorkflowRequest): Promise<WorkflowInfo> {
+  return invoke("update_custom_workflow", { workflowId, workflow });
+}
+
 // ===== Repo Manager Commands =====
 
 export async function listSkillRepos(): Promise<readonly SkillRepo[]> {
@@ -279,4 +333,26 @@ export async function browseRepoSkills(repoId: string): Promise<readonly RepoIte
 
 export async function installRepoSkill(repoId: string, skillPath: string): Promise<SkillInfo> {
   return invoke("install_repo_skill", { repoId, skillPath });
+}
+
+// ===== Test API Call =====
+
+export async function testApiCall(engine: string, model: string, message: string): Promise<string> {
+  return invoke("test_api_call", { engine, model, message });
+}
+
+// ===== Per-Project Runtime Override =====
+
+export async function getProjectRuntimeOverride(projectDir: string): Promise<ProjectRuntimeOverride> {
+  return invoke("get_project_runtime_override", { projectDir });
+}
+
+export async function setProjectRuntimeOverride(projectDir: string, config: ProjectRuntimeOverride): Promise<boolean> {
+  return invoke("set_project_runtime_override", { projectDir, config });
+}
+
+// ===== Project Events (Activity Feed) =====
+
+export async function getProjectEvents(projectDir: string, limit?: number): Promise<readonly ProjectEvent[]> {
+  return invoke("get_project_events", { projectDir, limit: limit ?? 50 });
 }

@@ -46,12 +46,27 @@ Omnihive is a **desktop application** that bootstraps fully autonomous AI compan
 - **Consensus-driven** - agents share state through a consensus memory document
 - **Cycle history & logs** - real-time monitoring of agent activity
 
+### Interactive Swarm Visualization (v0.3.0)
+- **Agent Topology Ring** - SVG ring visualization showing all agents, click any agent to inspect details
+- **Agent Detail Panel** - view per-agent performance (cycles, errors, success rate), recent activity, and memory
+- **Expandable Cycle Timeline** - click any cycle to see outcome, files changed, duration, and error details
+- **Activity Feed** - color-coded real-time event stream with agent badges
+- **Terminal Log Viewer** - searchable log output with auto-scroll and syntax highlighting (errors/warnings)
+
+### Configurable Runtime (v0.3.0)
+- **Per-project engine/model** - override global engine and model settings on each project independently
+- **Flexible API format** - supports Anthropic Standard, Claude Code Compatible, and OpenAI Compatible formats
+- **SSE streaming** - optional streaming mode for API responses with real-time token delivery
+- **Custom headers** - configure `anthropic-version`, extra headers, and advanced provider options
+- **API test command** - test provider connectivity directly from settings
+
 ### Resource Library
 - **40+ built-in skills** - from coding standards to deployment patterns
 - **Pre-built personas** - battle-tested agent configurations for every role
 - **Workflow chains** - coordinated multi-agent execution sequences
 - **MCP integration** - connect agents to external services (GitHub, Slack, databases, web search)
 - **Remote repositories** - browse and install skills from any GitHub repo
+- **Library management** - add custom skills, agents, and workflows directly from the UI
 
 ### Developer Experience
 - **6 color themes** - 3 dark (Obsidian, Cyber, Ember) + 3 light (Daylight, Paper, Lavender)
@@ -64,11 +79,11 @@ Omnihive is a **desktop application** that bootstraps fully autonomous AI compan
 
 | Dashboard | Project Detail | Library |
 |:---------:|:--------------:|:-------:|
-| Manage all projects | Real-time agent monitoring | Browse skills & agents |
+| Manage all projects with per-project config | Interactive agent topology & timeline | Browse skills & agents |
 
-| Settings | Theme Selector | Repo Browser |
+| Settings | Theme Selector | Agent Detail |
 |:--------:|:--------------:|:------------:|
-| Provider management | 6 themes (dark + light) | Install from GitHub |
+| Advanced provider management | 6 themes (dark + light) | Per-agent performance & memory |
 
 ## Quick Start
 
@@ -120,6 +135,7 @@ You need at least one AI coding CLI installed:
         +-----+--------------+-----+
         |     Provider Router      |
         | Claude | Codex | OpenCode|
+        |   (Standard / Stream)    |
         +--------------------------+
 ```
 
@@ -145,22 +161,30 @@ omnihive/
 ├── app/                           # Tauri desktop application
 │   ├── src/                       # React frontend
 │   │   ├── routes/                # Pages: Dashboard, NewProject, Library, Settings
-│   │   ├── components/            # Layout, Sidebar
+│   │   ├── components/
+│   │   │   ├── layout/            # Layout, Sidebar
+│   │   │   ├── dashboard/         # ProjectCard, ConfigSelector
+│   │   │   ├── project/           # AgentTopologyRing, CycleTimeline, ActivityFeed,
+│   │   │   │                      # AgentDetailPanel, LogViewer, constants
+│   │   │   └── library/           # PersonaDetail, SkillDetail, McpTab, RepoManager
 │   │   ├── lib/                   # Types, Tauri bindings, i18n, utils
 │   │   └── styles/                # Global CSS with 6 themes
 │   ├── src-tauri/                 # Rust backend
 │   │   ├── src/
 │   │   │   ├── commands/          # Tauri commands
 │   │   │   │   ├── bootstrap.rs   # Seed analysis & config generation
-│   │   │   │   ├── runtime.rs     # Agent loop management
+│   │   │   │   ├── runtime.rs     # Agent loop, per-project config, events
 │   │   │   │   ├── library.rs     # Persona/skill/workflow listing
 │   │   │   │   ├── settings.rs    # App settings CRUD
 │   │   │   │   ├── mcp.rs         # MCP server management
 │   │   │   │   ├── repo_manager.rs# GitHub repo browser & installer
-│   │   │   │   ├── skill_manager.rs# Local skill scanner
+│   │   │   │   ├── skill_manager.rs# Local skill scanner & custom add
 │   │   │   │   ├── provider_detect.rs # Auto-detect API configs
 │   │   │   │   └── system.rs      # System environment detection
-│   │   │   ├── engine/            # Bootstrap & generator engines
+│   │   │   ├── engine/
+│   │   │   │   ├── api_client.rs  # Unified API: Anthropic/Stream/OpenAI
+│   │   │   │   ├── bootstrap.rs   # Config bootstrap engine
+│   │   │   │   └── generator.rs   # File generation engine
 │   │   │   └── models/            # Shared data structures
 │   │   └── Cargo.toml
 │   └── package.json
@@ -175,6 +199,60 @@ omnihive/
 ├── LICENSE                        # MIT
 └── README.md
 ```
+
+## Changelog
+
+### v0.3.0 - Runtime Overhaul + Interactive Visualization
+
+**Runtime API Fix & Configurable Format**
+- Rewrote `api_client.rs` with unified `ApiCallConfig` supporting Anthropic Standard, Claude Code Compatible, and OpenAI formats
+- Added SSE streaming support (`force_stream`) for real-time API response parsing
+- Configurable `anthropic-version` header and custom extra headers per provider
+- Advanced provider settings UI (collapsible section in Settings)
+- `test_api_call` command for provider connectivity testing
+- Increased API error message truncation from 500 to 2000 chars for better debugging
+
+**Per-Project Runtime Configuration**
+- Projects can now override global engine and model settings independently
+- `ConfigSelector` popover on Dashboard cards for quick per-project config
+- Per-project overrides stored as `.runtime_override.json` in project directory
+- Enhanced `ProjectCard` with inline start/stop, engine/model badges, status animation
+
+**Interactive Project Detail Visualization**
+- `AgentTopologyRing` - SVG ring with click-to-select agents, glow effects, center pulse hub
+- `AgentDetailPanel` - per-agent performance stats, recent activity, memory viewer
+- `CycleTimeline` - expandable cycle entries with outcome, files changed, duration, errors
+- `ActivityFeed` - color-coded event stream with live polling
+- `LogViewer` - terminal-style log with search filter, auto-scroll, error/warning highlighting
+- New 2/3 + 1/3 responsive layout for Project Detail page
+- In-memory event tracking system with `emit_project_event` and `get_project_events`
+
+**Dashboard Enhancement**
+- Rewritten as orchestrator with extracted `ConfigStrip`, `StatsBar`, and `ProjectCard` components
+- Projects sorted by running-first, then last active
+
+**Library Management**
+- Extracted Library page into modular components (PersonaDetail, SkillDetail, McpTab, RepoManager)
+- Custom skill, agent, and workflow creation from UI
+
+### v0.2.2 - Themes, Remote Repos, README
+
+- 6 color themes (Obsidian, Cyber, Ember, Daylight, Paper, Lavender)
+- Remote skill repository browser (GitHub API)
+- README rewrite and documentation
+
+### v0.2.1 - Settings, Library, Skill Scanning
+
+- Settings tabs UI with provider management
+- Library page with persona/skill/workflow listing
+- Skill scanning and updater signing
+
+### v0.2.0 - MCP, Auto-Update, Provider Detection
+
+- MCP server integration
+- Auto-update checker
+- Provider auto-detection
+- Agent memory support
 
 ## Contributing
 
@@ -211,11 +289,16 @@ npm run tauri build
 - [x] MCP server integration
 - [x] Remote skill repository browser
 - [x] macOS & Linux builds (CI/CD)
-- [ ] Agent performance analytics dashboard
+- [x] Interactive agent topology visualization
+- [x] Per-project runtime configuration
+- [x] Configurable API format (Standard / Claude Code / OpenAI)
+- [x] SSE streaming support
+- [x] Agent performance analytics panel
+- [x] Activity event feed
 - [ ] Cost tracking & budget visualization
 - [ ] Plugin system for custom engines
 - [ ] Skill marketplace (community-driven)
-- [ ] Real-time agent collaboration view
+- [ ] Multi-project parallel execution
 
 ## Star History
 

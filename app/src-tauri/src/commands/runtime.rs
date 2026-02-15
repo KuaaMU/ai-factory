@@ -29,12 +29,20 @@ pub(crate) fn silent_command(program: &str) -> Command {
 static RUNNING_LOOPS: std::sync::LazyLock<Mutex<HashMap<String, Arc<AtomicBool>>>> =
     std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
 
+// Track skill requests per project: project_dir -> Vec<skill_id>
+static PENDING_SKILL_REQUESTS: std::sync::LazyLock<Mutex<HashMap<String, Vec<String>>>> =
+    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+
 /// API credentials resolved at loop start
 struct ApiCredentials {
     engine_type: String,
     api_key: String,
     api_base_url: String,
     model: String,
+    anthropic_version: String,
+    extra_headers: HashMap<String, String>,
+    force_stream: bool,
+    api_format: String,
 }
 
 // ===== Tauri Commands =====
@@ -58,8 +66,29 @@ pub fn start_loop(project_dir: String, engine: String, model: String) -> Result<
         }
     }
 
+    // Check per-project override first, fall back to global
+    let (effective_engine, effective_model) = {
+        let override_path = dir.join(".runtime_override.json");
+        if override_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&override_path) {
+                if let Ok(ovr) = serde_json::from_str::<ProjectRuntimeOverride>(&content) {
+                    (
+                        ovr.engine.unwrap_or_else(|| engine.clone()),
+                        ovr.model.unwrap_or_else(|| model.clone()),
+                    )
+                } else {
+                    (engine.clone(), model.clone())
+                }
+            } else {
+                (engine.clone(), model.clone())
+            }
+        } else {
+            (engine.clone(), model.clone())
+        }
+    };
+
     // Resolve API credentials from settings
-    let credentials = resolve_api_credentials(&engine, &model)?;
+    let credentials = resolve_api_credentials(&effective_engine, &effective_model)?;
 
     // Ensure log directory exists
     let _ = std::fs::create_dir_all(dir.join("logs"));
@@ -108,6 +137,141 @@ pub fn start_loop(project_dir: String, engine: String, model: String) -> Result<
     });
 
     Ok(true)
+}
+
+#[command]
+pub fn resolve_runtime_config(engine: String, model: String) -> Result<ResolvedRuntimeConfig, String> {
+    // Try to resolve credentials using the same logic as start_loop
+    let mask_key = |key: &str| -> String {
+        if key.len() <= 8 {
+            "***".to_string()
+        } else {
+            format!("{}...{}", &key[..4], &key[key.len()-4..])
+        }
+    };
+
+    // 1. Try app-level settings
+    if let Ok(settings) = load_app_settings() {
+        let provider_type = match engine.as_str() {
+            "claude" => "anthropic",
+            "openai" | "codex" => "openai",
+            other => other,
+        };
+
+        let provider = settings
+            .providers
+            .iter()
+            .find(|p| p.enabled && p.engine == engine)
+            .or_else(|| {
+                settings
+                    .providers
+                    .iter()
+                    .find(|p| p.enabled && (p.provider_type == provider_type || p.provider_type == engine.as_str()))
+            });
+
+        if let Some(provider) = provider {
+            if !provider.api_key.is_empty() {
+                let api_base_url = if provider.api_base_url.is_empty() {
+                    match engine.as_str() {
+                        "claude" => "https://api.anthropic.com".to_string(),
+                        "openai" | "codex" => "https://api.openai.com".to_string(),
+                        _ => provider.api_base_url.clone(),
+                    }
+                } else {
+                    provider.api_base_url.clone()
+                };
+
+                let resolved_model = if !provider.default_model.is_empty()
+                    && provider.default_model.contains('-')
+                {
+                    provider.default_model.clone()
+                } else {
+                    resolve_model_name(provider_type, &model)
+                };
+
+                return Ok(ResolvedRuntimeConfig {
+                    engine: engine.clone(),
+                    model_tier: model,
+                    resolved_model,
+                    provider_name: provider.name.clone(),
+                    provider_type: provider.provider_type.clone(),
+                    api_base_url,
+                    api_key_preview: mask_key(&provider.api_key),
+                    source: "settings".to_string(),
+                });
+            }
+        }
+    }
+
+    // 2. Env vars
+    let env_configs = match engine.as_str() {
+        "claude" => vec![("ANTHROPIC_API_KEY", "anthropic", "https://api.anthropic.com")],
+        "openai" | "codex" => vec![("OPENAI_API_KEY", "openai", "https://api.openai.com")],
+        _ => vec![
+            ("ANTHROPIC_API_KEY", "anthropic", "https://api.anthropic.com"),
+            ("OPENAI_API_KEY", "openai", "https://api.openai.com"),
+        ],
+    };
+
+    for (env_var, engine_type, base_url) in &env_configs {
+        if let Ok(key) = std::env::var(env_var) {
+            if !key.trim().is_empty() {
+                return Ok(ResolvedRuntimeConfig {
+                    engine: engine.clone(),
+                    model_tier: model.clone(),
+                    resolved_model: resolve_model_name(engine_type, &model),
+                    provider_name: format!("env:{}", env_var),
+                    provider_type: engine_type.to_string(),
+                    api_base_url: base_url.to_string(),
+                    api_key_preview: mask_key(key.trim()),
+                    source: format!("env:{}", env_var),
+                });
+            }
+        }
+    }
+
+    // 3. Auto-detected
+    if let Ok(detected) = crate::commands::provider_detect::detect_providers() {
+        let provider_type = match engine.as_str() {
+            "claude" => "anthropic",
+            "openai" | "codex" => "openai",
+            other => other,
+        };
+        if let Some(dp) = detected.iter().find(|d| d.provider_type == provider_type) {
+            return Ok(ResolvedRuntimeConfig {
+                engine: engine.clone(),
+                model_tier: model.clone(),
+                resolved_model: resolve_model_name(provider_type, &model),
+                provider_name: dp.suggested_name.clone(),
+                provider_type: dp.provider_type.clone(),
+                api_base_url: dp.api_base_url.clone(),
+                api_key_preview: mask_key(&dp.api_key),
+                source: dp.source.clone(),
+            });
+        }
+    }
+
+    Err(format!("No provider configured for engine '{}'", engine))
+}
+
+fn resolve_model_name(engine_type: &str, model: &str) -> String {
+    if model.contains('-') || model.contains('/') {
+        return model.to_string();
+    }
+    match engine_type {
+        "anthropic" => match model {
+            "opus" => "claude-opus-4-20250514".to_string(),
+            "sonnet" => "claude-sonnet-4-20250514".to_string(),
+            "haiku" => "claude-3-5-haiku-20241022".to_string(),
+            other => other.to_string(),
+        },
+        "openai" => match model {
+            "opus" | "sonnet" => "gpt-4o".to_string(),
+            "haiku" => "gpt-4o-mini".to_string(),
+            other => other.to_string(),
+        },
+        _ => model.to_string(),
+    }
 }
 
 #[command]
@@ -245,10 +409,102 @@ pub fn tail_log(project_dir: String, lines: usize) -> Result<Vec<String>, String
     Ok(all_lines[start..].to_vec())
 }
 
+// ===== Test API Call =====
+
+#[command]
+pub fn test_api_call(engine: String, model: String, message: String) -> Result<String, String> {
+    let credentials = resolve_api_credentials(&engine, &model)?;
+
+    let api_config = api_client::ApiCallConfig {
+        api_key: credentials.api_key,
+        api_base_url: credentials.api_base_url,
+        model: credentials.model,
+        system_prompt: "You are a helpful assistant. Reply concisely.".to_string(),
+        user_message: if message.is_empty() { "Say hello in one sentence.".to_string() } else { message },
+        timeout_secs: 30,
+        anthropic_version: credentials.anthropic_version,
+        extra_headers: credentials.extra_headers,
+        force_stream: credentials.force_stream,
+        api_format: if credentials.engine_type == "openai" {
+            "openai".to_string()
+        } else {
+            credentials.api_format
+        },
+    };
+
+    let response = api_client::call_api(&api_config)?;
+    Ok(format!("[{}in/{}out] {}", response.input_tokens, response.output_tokens, response.text))
+}
+
+// ===== Per-Project Runtime Override =====
+
+#[command]
+pub fn get_project_runtime_override(project_dir: String) -> Result<ProjectRuntimeOverride, String> {
+    let dir = PathBuf::from(&project_dir);
+    let override_path = dir.join(".runtime_override.json");
+    if !override_path.exists() {
+        return Ok(ProjectRuntimeOverride::default());
+    }
+    let content = std::fs::read_to_string(&override_path)
+        .map_err(|e| format!("Failed to read runtime override: {}", e))?;
+    serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse runtime override: {}", e))
+}
+
+#[command]
+pub fn set_project_runtime_override(project_dir: String, config: ProjectRuntimeOverride) -> Result<bool, String> {
+    let dir = PathBuf::from(&project_dir);
+    let override_path = dir.join(".runtime_override.json");
+    let json = serde_json::to_string_pretty(&config)
+        .map_err(|e| format!("Failed to serialize override: {}", e))?;
+    std::fs::write(&override_path, json)
+        .map_err(|e| format!("Failed to write override: {}", e))?;
+    Ok(true)
+}
+
+// ===== Project Events (Activity Feed) =====
+
+// Track events per project: project_dir -> Vec<ProjectEvent>
+static PROJECT_EVENTS: std::sync::LazyLock<Mutex<HashMap<String, Vec<ProjectEvent>>>> =
+    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+
+fn emit_project_event(project_dir: &str, event_type: &str, agent: &str, summary: &str, details: &str) {
+    let event = ProjectEvent {
+        id: format!("{}-{}", chrono::Local::now().timestamp_millis(), agent),
+        timestamp: chrono::Local::now().format("%+").to_string(),
+        event_type: event_type.to_string(),
+        agent: agent.to_string(),
+        summary: summary.to_string(),
+        details: details.to_string(),
+    };
+
+    if let Ok(mut map) = PROJECT_EVENTS.lock() {
+        let events = map.entry(project_dir.to_string()).or_default();
+        events.push(event);
+        // Keep last 200 events
+        if events.len() > 200 {
+            let drain_count = events.len() - 200;
+            events.drain(..drain_count);
+        }
+    }
+}
+
+#[command]
+pub fn get_project_events(project_dir: String, limit: Option<usize>) -> Result<Vec<ProjectEvent>, String> {
+    let max = limit.unwrap_or(50);
+    if let Ok(map) = PROJECT_EVENTS.lock() {
+        if let Some(events) = map.get(&project_dir) {
+            let start = if events.len() > max { events.len() - max } else { 0 };
+            return Ok(events[start..].to_vec());
+        }
+    }
+    Ok(Vec::new())
+}
+
 // ===== API Credential Resolution =====
 
 fn resolve_api_credentials(engine: &str, model: &str) -> Result<ApiCredentials, String> {
-    // 1. Try app-level settings (stored providers)
+    // 1. Try app-level settings (stored providers) — prefer engine field match
     if let Ok(settings) = load_app_settings() {
         let provider_type = match engine {
             "claude" => "anthropic",
@@ -256,11 +512,20 @@ fn resolve_api_credentials(engine: &str, model: &str) -> Result<ApiCredentials, 
             other => other,
         };
 
-        if let Some(provider) = settings
+        // First: match by engine field (new per-engine design)
+        let provider = settings
             .providers
             .iter()
-            .find(|p| p.enabled && (p.provider_type == provider_type || p.provider_type == engine))
-        {
+            .find(|p| p.enabled && p.engine == engine)
+            // Fallback: match by provider_type (legacy flat list)
+            .or_else(|| {
+                settings
+                    .providers
+                    .iter()
+                    .find(|p| p.enabled && (p.provider_type == provider_type || p.provider_type == engine))
+            });
+
+        if let Some(provider) = provider {
             if !provider.api_key.is_empty() {
                 let api_base_url = if provider.api_base_url.is_empty() {
                     match engine {
@@ -272,11 +537,34 @@ fn resolve_api_credentials(engine: &str, model: &str) -> Result<ApiCredentials, 
                     provider.api_base_url.clone()
                 };
 
+                // Use provider's default_model if it looks like a full model ID,
+                // otherwise fall back to the tier name from settings
+                let resolved_model = if !provider.default_model.is_empty()
+                    && provider.default_model.contains('-')
+                {
+                    // Provider has a specific model ID (e.g. "claude-opus-4-1-20250805")
+                    provider.default_model.clone()
+                } else {
+                    model.to_string()
+                };
+
                 return Ok(ApiCredentials {
                     engine_type: provider_type.to_string(),
                     api_key: provider.api_key.clone(),
                     api_base_url,
-                    model: model.to_string(),
+                    model: resolved_model,
+                    anthropic_version: if provider.anthropic_version.is_empty() {
+                        "2023-06-01".to_string()
+                    } else {
+                        provider.anthropic_version.clone()
+                    },
+                    extra_headers: provider.extra_headers.clone(),
+                    force_stream: provider.force_stream,
+                    api_format: if provider.api_format.is_empty() {
+                        "anthropic".to_string()
+                    } else {
+                        provider.api_format.clone()
+                    },
                 });
             }
         }
@@ -301,6 +589,10 @@ fn resolve_api_credentials(engine: &str, model: &str) -> Result<ApiCredentials, 
                     api_key: key.trim().to_string(),
                     api_base_url: base_url.to_string(),
                     model: model.to_string(),
+                    anthropic_version: "2023-06-01".to_string(),
+                    extra_headers: HashMap::new(),
+                    force_stream: false,
+                    api_format: "anthropic".to_string(),
                 });
             }
         }
@@ -319,6 +611,10 @@ fn resolve_api_credentials(engine: &str, model: &str) -> Result<ApiCredentials, 
                 api_key: dp.api_key.clone(),
                 api_base_url: dp.api_base_url.clone(),
                 model: model.to_string(),
+                anthropic_version: "2023-06-01".to_string(),
+                extra_headers: HashMap::new(),
+                force_stream: false,
+                api_format: "anthropic".to_string(),
             });
         }
     }
@@ -402,7 +698,7 @@ fn run_loop(
         write_state(&dir, "running", cycle, cycle, errors).ok();
 
         // Execute API cycle
-        let result = run_api_cycle(&dir, &credentials, current_agent, cycle, cycle_timeout);
+        let result = run_api_cycle(&dir, &project_dir, &credentials, current_agent, cycle, cycle_timeout);
 
         let completed_at = chrono::Local::now().format("%+").to_string();
 
@@ -416,6 +712,14 @@ fn run_loop(
                         "Cycle {} completed | Tokens: {}in/{}out | Output: {}",
                         cycle, input_tokens, output_tokens, preview
                     ),
+                );
+
+                emit_project_event(
+                    &project_dir,
+                    "cycle_complete",
+                    current_agent,
+                    &format!("Cycle {} completed ({}+{} tokens)", cycle, input_tokens, output_tokens),
+                    &preview,
                 );
 
                 history.push(CycleResult {
@@ -440,6 +744,14 @@ fn run_loop(
                         "ERROR: Cycle {} failed: {} (consecutive: {})",
                         cycle, err, errors
                     ),
+                );
+
+                emit_project_event(
+                    &project_dir,
+                    "cycle_error",
+                    current_agent,
+                    &format!("Cycle {} failed (error {})", cycle, errors),
+                    &truncate_string(&err, 200),
                 );
 
                 history.push(CycleResult {
@@ -484,6 +796,7 @@ fn run_loop(
 
 fn run_api_cycle(
     dir: &Path,
+    project_dir: &str,
     credentials: &ApiCredentials,
     agent_role: &str,
     cycle: u32,
@@ -500,30 +813,37 @@ fn run_api_cycle(
     let agent_memory = load_agent_memory(dir, agent_role);
     let handoff_note = load_handoff(dir);
 
-    // 4. Build focused prompts with memory and handoff context
-    let system_prompt = build_system_prompt(&agent_content, agent_role, cycle, &agent_memory);
+    // 4. Drain pending skill requests for injection
+    let injected_skills = drain_pending_skills(project_dir);
+
+    // 5. Build focused prompts with memory, handoff context, and injected skills
+    let system_prompt = build_system_prompt(&agent_content, agent_role, cycle, &agent_memory, &injected_skills);
     let user_prompt = build_user_prompt(&consensus_content, &handoff_note);
 
-    // 5. Call the appropriate API
-    let response = match credentials.engine_type.as_str() {
-        "anthropic" => api_client::call_anthropic(
-            &credentials.api_key,
-            &credentials.api_base_url,
-            &credentials.model,
-            &system_prompt,
-            &user_prompt,
-            timeout_secs,
-        )?,
-        "openai" => api_client::call_openai(
-            &credentials.api_key,
-            &credentials.api_base_url,
-            &credentials.model,
-            &system_prompt,
-            &user_prompt,
-            timeout_secs,
-        )?,
-        other => return Err(format!("Unsupported engine type: {}", other)),
+    // 5. Call the appropriate API using unified ApiCallConfig
+    let api_config = api_client::ApiCallConfig {
+        api_key: credentials.api_key.clone(),
+        api_base_url: credentials.api_base_url.clone(),
+        model: credentials.model.clone(),
+        system_prompt: system_prompt,
+        user_message: user_prompt,
+        timeout_secs: timeout_secs,
+        anthropic_version: credentials.anthropic_version.clone(),
+        extra_headers: credentials.extra_headers.clone(),
+        force_stream: credentials.force_stream,
+        api_format: if credentials.engine_type == "openai" {
+            "openai".to_string()
+        } else {
+            credentials.api_format.clone()
+        },
     };
+
+    append_log(dir, &format!(
+        "API call: engine={} model={} format={} stream={} url={}",
+        credentials.engine_type, credentials.model, api_config.api_format, api_config.force_stream, credentials.api_base_url,
+    ));
+
+    let response = api_client::call_api(&api_config)?;
 
     // 6. Try to extract and apply consensus update
     if let Some(updated_consensus) = extract_consensus_update(&response.text) {
@@ -558,10 +878,11 @@ fn run_api_cycle(
         save_handoff(dir, agent_role, cycle, &auto_handoff);
     }
 
-    // 8. Check for skill requests and log them
+    // 8. Check for skill requests and queue them for the next cycle
     let skill_requests = extract_skill_requests(&response.text);
     if !skill_requests.is_empty() {
         append_log(dir, &format!("Agent {} requested skills: {}", agent_role, skill_requests.join(", ")));
+        queue_skill_requests(project_dir, &skill_requests);
     }
 
     Ok((response.text, response.input_tokens, response.output_tokens))
@@ -588,9 +909,27 @@ fn read_agent_file(dir: &Path, role: &str) -> Result<String, String> {
     ))
 }
 
-fn build_system_prompt(agent_content: &str, role: &str, cycle: u32, agent_memory: &str) -> String {
+fn build_system_prompt(agent_content: &str, role: &str, cycle: u32, agent_memory: &str, injected_skills: &[String]) -> String {
     // Load relevant skills for this agent's role
     let skill_section = load_role_skills(role);
+
+    // Build injected skills section from pending requests
+    let injected_section = if injected_skills.is_empty() {
+        String::new()
+    } else {
+        let lib_dir = crate::commands::library::get_library_dir_pub();
+        let mut sections = Vec::new();
+        for skill_id in injected_skills {
+            if let Some(content) = load_skill_full_content(skill_id, lib_dir.as_deref()) {
+                sections.push(format!("### {} (requested)\n{}", skill_id, content));
+            }
+        }
+        if sections.is_empty() {
+            String::new()
+        } else {
+            format!("\n\n## Injected Skills (you requested these)\n\n{}", sections.join("\n\n"))
+        }
+    };
 
     // Include agent memory if available
     let memory_section = if agent_memory.is_empty() {
@@ -604,7 +943,7 @@ fn build_system_prompt(agent_content: &str, role: &str, cycle: u32, agent_memory
 
     format!(
         r#"{agent_content}
-{skill_section}{memory_section}
+{skill_section}{injected_section}{memory_section}
 ---
 
 You are performing cycle {cycle} of the autonomous company loop.
@@ -648,6 +987,7 @@ RULES:
 - Your handoff note will be shown to the next agent in the chain"#,
         agent_content = agent_content,
         skill_section = skill_section,
+        injected_section = injected_section,
         memory_section = memory_section,
         cycle = cycle,
         role = role,
@@ -1094,4 +1434,50 @@ fn extract_skill_requests(response: &str) -> Vec<String> {
     }
 
     requests
+}
+
+/// Queue skill requests for injection in the next cycle.
+fn queue_skill_requests(project_dir: &str, skill_ids: &[String]) {
+    if let Ok(mut map) = PENDING_SKILL_REQUESTS.lock() {
+        let entry = map.entry(project_dir.to_string()).or_default();
+        for id in skill_ids {
+            if !entry.contains(id) {
+                entry.push(id.clone());
+            }
+        }
+    }
+}
+
+/// Drain pending skill requests (returns and clears them).
+fn drain_pending_skills(project_dir: &str) -> Vec<String> {
+    if let Ok(mut map) = PENDING_SKILL_REQUESTS.lock() {
+        map.remove(project_dir).unwrap_or_default()
+    } else {
+        Vec::new()
+    }
+}
+
+/// Load the full content of a skill from disk (for injection when requested).
+fn load_skill_full_content(skill_id: &str, lib_dir: Option<&std::path::Path>) -> Option<String> {
+    let lib = lib_dir?;
+
+    // Try real-skills/{id}/SKILL.md first (full content)
+    let real_path = lib.join("real-skills").join(skill_id).join("SKILL.md");
+    if real_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&real_path) {
+            // Truncate to ~2000 chars to keep prompt manageable
+            return Some(truncate_string(&content, 2000));
+        }
+    }
+
+    // Try ecc-skills/{id}/SKILL.md
+    let ecc_path = lib.join("ecc-skills").join(skill_id).join("SKILL.md");
+    if ecc_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&ecc_path) {
+            return Some(truncate_string(&content, 2000));
+        }
+    }
+
+    // Fallback to yaml summary
+    load_skill_summary(skill_id, lib_dir)
 }

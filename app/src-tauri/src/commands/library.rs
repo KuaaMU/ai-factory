@@ -477,6 +477,118 @@ pub fn list_workflows() -> Result<Vec<WorkflowInfo>, String> {
     Ok(fallback_workflows())
 }
 
+#[command]
+pub fn get_skill_content(skill_id: String) -> Result<String, String> {
+    let lib_dir = get_library_dir()
+        .ok_or_else(|| "Library directory not found".to_string())?;
+
+    // Try real-skills/{id}/SKILL.md
+    let real_path = lib_dir.join("real-skills").join(&skill_id).join("SKILL.md");
+    if real_path.exists() {
+        return std::fs::read_to_string(&real_path)
+            .map_err(|e| format!("Failed to read skill: {}", e));
+    }
+
+    // Try ecc-skills/{id}/SKILL.md
+    let ecc_path = lib_dir.join("ecc-skills").join(&skill_id).join("SKILL.md");
+    if ecc_path.exists() {
+        return std::fs::read_to_string(&ecc_path)
+            .map_err(|e| format!("Failed to read skill: {}", e));
+    }
+
+    // Try skills/{id}.yaml
+    let yaml_path = lib_dir.join("skills").join(format!("{}.yaml", skill_id));
+    if yaml_path.exists() {
+        return std::fs::read_to_string(&yaml_path)
+            .map_err(|e| format!("Failed to read skill: {}", e));
+    }
+
+    Err(format!("Skill '{}' not found in library", skill_id))
+}
+
+/// Toggle a library item's enabled state (persisted in library_state.json).
+#[command]
+pub fn toggle_library_item(item_type: String, item_id: String, enabled: bool) -> Result<bool, String> {
+    let state = load_library_state();
+    let mut new_state = state;
+
+    match item_type.as_str() {
+        "persona" => {
+            if enabled {
+                new_state.disabled_personas.retain(|id| id != &item_id);
+            } else if !new_state.disabled_personas.contains(&item_id) {
+                new_state.disabled_personas.push(item_id);
+            }
+        }
+        "skill" => {
+            if enabled {
+                new_state.disabled_skills.retain(|id| id != &item_id);
+            } else if !new_state.disabled_skills.contains(&item_id) {
+                new_state.disabled_skills.push(item_id);
+            }
+        }
+        "workflow" => {
+            if enabled {
+                new_state.disabled_workflows.retain(|id| id != &item_id);
+            } else if !new_state.disabled_workflows.contains(&item_id) {
+                new_state.disabled_workflows.push(item_id);
+            }
+        }
+        _ => return Err(format!("Unknown item type: {}", item_type)),
+    }
+
+    save_library_state(&new_state)?;
+    Ok(enabled)
+}
+
+#[command]
+pub fn get_library_state() -> Result<LibraryState, String> {
+    Ok(load_library_state())
+}
+
+// ===== Library State Persistence =====
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
+pub struct LibraryState {
+    #[serde(default)]
+    pub disabled_personas: Vec<String>,
+    #[serde(default)]
+    pub disabled_skills: Vec<String>,
+    #[serde(default)]
+    pub disabled_workflows: Vec<String>,
+}
+
+fn get_library_state_path() -> PathBuf {
+    dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("omnihive")
+        .join("library_state.json")
+}
+
+fn load_library_state() -> LibraryState {
+    let path = get_library_state_path();
+    if !path.exists() {
+        return LibraryState::default();
+    }
+    std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|c| serde_json::from_str(&c).ok())
+        .unwrap_or_default()
+}
+
+fn save_library_state(state: &LibraryState) -> Result<(), String> {
+    let path = get_library_state_path();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create dir: {}", e))?;
+    }
+    let json = serde_json::to_string_pretty(state)
+        .map_err(|e| format!("Serialize error: {}", e))?;
+    std::fs::write(&path, &json)
+        .map_err(|e| format!("Write error: {}", e))?;
+    Ok(())
+}
+
 // ===== Hardcoded Fallbacks =====
 
 fn default_lib_fields() -> (bool, Option<String>, Vec<String>) {

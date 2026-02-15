@@ -78,6 +78,14 @@ export function Sidebar() {
             {label}
           </NavLink>
         ))}
+
+        {/* Quick search hint */}
+        <div className="mt-3 flex items-center justify-between rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground/60">
+          <span>{t("common.search")}</span>
+          <kbd className="rounded border border-border bg-secondary px-1.5 py-0.5 text-[10px]">
+            Ctrl+K
+          </kbd>
+        </div>
       </nav>
 
       {/* Footer */}

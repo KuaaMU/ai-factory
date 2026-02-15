@@ -327,6 +327,34 @@ pub struct AiProvider {
     pub enabled: bool,
     pub is_healthy: bool,
     pub last_error: Option<String>,
+    #[serde(default = "default_provider_engine")]
+    pub engine: String,
+    #[serde(default = "default_anthropic_version")]
+    pub anthropic_version: String,
+    #[serde(default)]
+    pub extra_headers: std::collections::HashMap<String, String>,
+    #[serde(default)]
+    pub force_stream: bool,
+    #[serde(default = "default_api_format")]
+    pub api_format: String,
+}
+
+fn default_provider_engine() -> String { "claude".to_string() }
+fn default_anthropic_version() -> String { "2023-06-01".to_string() }
+fn default_api_format() -> String { "anthropic".to_string() }
+
+// ===== Resolved Runtime Config (for config preview) =====
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResolvedRuntimeConfig {
+    pub engine: String,
+    pub model_tier: String,
+    pub resolved_model: String,
+    pub provider_name: String,
+    pub provider_type: String,
+    pub api_base_url: String,
+    pub api_key_preview: String,
+    pub source: String,
 }
 
 // ===== MCP Server Configuration =====
@@ -373,6 +401,31 @@ pub struct LogEntry {
     pub level: String,
     pub agent: String,
     pub message: String,
+}
+
+// ===== Per-Project Runtime Override =====
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ProjectRuntimeOverride {
+    #[serde(default)]
+    pub engine: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub provider_id: Option<String>,
+}
+
+// ===== Project Event (Activity Feed) =====
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectEvent {
+    pub id: String,
+    pub timestamp: String,
+    pub event_type: String,
+    pub agent: String,
+    pub summary: String,
+    #[serde(default)]
+    pub details: String,
 }
 
 // ===== Detected Provider (auto-detection) =====

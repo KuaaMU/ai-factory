@@ -39,6 +39,9 @@ const en = {
   "dashboard.noProjects": "No projects yet",
   "dashboard.noProjectsDesc": "Create your first AI company from a seed prompt",
   "dashboard.createProject": "Create Project",
+  "dashboard.running": "Running",
+  "dashboard.totalCycles": "Total Cycles",
+  "dashboard.lastActive": "Last active",
 
   // NewProject
   "newProject.title": "Create New AI Company",
@@ -98,6 +101,14 @@ const en = {
   "projectDetail.agentMemory": "Agent Memory",
   "projectDetail.noMemory": "No memory recorded yet for this agent.",
   "projectDetail.selectAgent": "Select an agent to view its memory.",
+  "projectDetail.activeAgent": "Active Agent",
+  "projectDetail.noActiveAgent": "None",
+  "projectDetail.uptime": "Uptime",
+  "projectDetail.searchLogs": "Filter logs...",
+  "projectDetail.autoScroll": "Auto-scroll",
+  "projectDetail.topology": "Agent Topology",
+  "projectDetail.totalErrors": "total errors",
+  "projectDetail.cycleTimeline": "Cycle Timeline",
 
   // Library
   "library.title": "Library",
@@ -231,6 +242,75 @@ const en = {
   "library.installSkill": "Install",
   "library.installed": "Installed",
   "library.repoHint": "e.g. owner/repo — browse skills from any GitHub repository",
+
+  // Engine-based Provider UI
+  "settings.engineClaude": "Claude Code",
+  "settings.engineCodex": "Codex CLI",
+  "settings.engineOpencode": "OpenCode",
+  "settings.engineGemini": "Gemini CLI",
+  "settings.engineClaudeDesc": "Anthropic Claude Code — uses ANTHROPIC_API_KEY",
+  "settings.engineCodexDesc": "OpenAI Codex CLI — uses OpenAI-compatible endpoints",
+  "settings.engineOpencodeDesc": "OpenCode — uses configurable provider backends",
+  "settings.engineGeminiDesc": "Google Gemini CLI — uses Gemini API",
+  "settings.editProvider": "Edit Provider",
+  "settings.testConnection": "Test",
+  "settings.testing": "Testing...",
+  "settings.testSuccess": "Connection successful",
+  "settings.testFailed": "Connection failed",
+  "settings.providerEngine": "Target Engine",
+  "settings.noProvidersForEngine": "No providers configured for this engine.",
+  "settings.activeProvider": "Active",
+  "settings.enableProvider": "Enable",
+  "settings.disableProvider": "Disable",
+  "settings.providerEnabled": "Enabled",
+  "settings.providerDisabled": "Disabled",
+
+  // Dashboard Config
+  "dashboard.configStrip": "Active Configuration",
+  "dashboard.engine": "Engine",
+  "dashboard.model": "Model",
+  "dashboard.provider": "Provider",
+  "dashboard.noActiveProvider": "Not configured",
+  "dashboard.goToSettings": "Configure",
+
+  // Workflow Management
+  "library.addWorkflow": "Add Workflow",
+  "library.editWorkflow": "Edit Workflow",
+  "library.editAgent": "Edit Agent",
+  "library.editSkill": "Edit Skill",
+  "library.agentChain": "Agent Chain",
+  "library.agentChainHint": "Agents will execute in this order each convergence round",
+  "library.convergenceCycles": "Convergence Cycles",
+  "library.chainPlaceholder": "e.g. ceo, product, fullstack, critic",
+  "library.update": "Update",
+  "library.close": "Close",
+  "library.fullContent": "Full Content",
+  "library.preview": "Preview",
+
+  // Advanced Provider Settings
+  "settings.advancedSettings": "Advanced Settings",
+  "settings.anthropicVersion": "Anthropic Version",
+  "settings.apiFormat": "API Format",
+  "settings.forceStream": "Force Streaming",
+  "settings.forceStreamDesc": "Use SSE streaming for API calls",
+  "settings.extraHeaders": "Extra Headers",
+  "settings.addHeader": "Add Header",
+
+  // Dashboard enhancements
+  "dashboard.viewDetail": "Details",
+  "dashboard.resetToGlobal": "Reset to Global",
+
+  // ProjectDetail enhancements
+  "projectDetail.activityFeed": "Activity Feed",
+  "projectDetail.noEvents": "No events yet. Start the loop to begin.",
+  "projectDetail.agentDetail": "Detail",
+  "projectDetail.performance": "Performance",
+  "projectDetail.successRate": "Success",
+  "projectDetail.recentActivity": "Recent Activity",
+  "projectDetail.noActivity": "No activity recorded yet.",
+  "projectDetail.outcome": "Outcome",
+  "projectDetail.filesChanged": "Files Changed",
+  "projectDetail.errorDetail": "Error Details",
 } as const;
 
 const zh: Record<keyof typeof en, string> = {
@@ -275,6 +355,9 @@ const zh: Record<keyof typeof en, string> = {
   "newProject.step.analysis": "\u5206\u6790",
   "newProject.step.roles": "\u89d2\u8272",
   "newProject.step.configure": "\u914d\u7f6e",
+  "dashboard.running": "运行中",
+  "dashboard.totalCycles": "总循环数",
+  "dashboard.lastActive": "最近活跃",
   "newProject.step.generate": "\u751f\u6210",
   "newProject.whatToBuild": "\u60a8\u60f3\u8981\u6784\u5efa\u4ec0\u4e48\uff1f",
   "newProject.placeholder": "\u7528\u4e00\u53e5\u8bdd\u63cf\u8ff0\u60a8\u7684\u4ea7\u54c1\u521b\u610f...",
@@ -326,6 +409,14 @@ const zh: Record<keyof typeof en, string> = {
   "projectDetail.agentMemory": "\u667a\u80fd\u4f53\u8bb0\u5fc6",
   "projectDetail.noMemory": "\u6b64\u667a\u80fd\u4f53\u8fd8\u6ca1\u6709\u8bb0\u5fc6\u8bb0\u5f55\u3002",
   "projectDetail.selectAgent": "\u9009\u62e9\u4e00\u4e2a\u667a\u80fd\u4f53\u67e5\u770b\u5176\u8bb0\u5fc6\u3002",
+  "projectDetail.activeAgent": "活跃智能体",
+  "projectDetail.noActiveAgent": "无",
+  "projectDetail.uptime": "运行时长",
+  "projectDetail.searchLogs": "过滤日志...",
+  "projectDetail.autoScroll": "自动滚动",
+  "projectDetail.topology": "智能体拓扑",
+  "projectDetail.totalErrors": "个总错误",
+  "projectDetail.cycleTimeline": "循环时间线",
 
   // Library
   "library.title": "\u8d44\u6e90\u5e93",
@@ -459,6 +550,75 @@ const zh: Record<keyof typeof en, string> = {
   "library.installSkill": "\u5b89\u88c5",
   "library.installed": "\u5df2\u5b89\u88c5",
   "library.repoHint": "\u4f8b\u5982 owner/repo \u2014 \u4ece\u4efb\u610f GitHub \u4ed3\u5e93\u6d4f\u89c8\u6280\u80fd",
+
+  // Engine-based Provider UI
+  "settings.engineClaude": "Claude Code",
+  "settings.engineCodex": "Codex CLI",
+  "settings.engineOpencode": "OpenCode",
+  "settings.engineGemini": "Gemini CLI",
+  "settings.engineClaudeDesc": "Anthropic Claude Code \u2014 \u4f7f\u7528 ANTHROPIC_API_KEY",
+  "settings.engineCodexDesc": "OpenAI Codex CLI \u2014 \u4f7f\u7528 OpenAI \u517c\u5bb9\u7aef\u70b9",
+  "settings.engineOpencodeDesc": "OpenCode \u2014 \u4f7f\u7528\u53ef\u914d\u7f6e\u7684\u4f9b\u5e94\u5546\u540e\u7aef",
+  "settings.engineGeminiDesc": "Google Gemini CLI \u2014 \u4f7f\u7528 Gemini API",
+  "settings.editProvider": "\u7f16\u8f91\u4f9b\u5e94\u5546",
+  "settings.testConnection": "\u6d4b\u8bd5",
+  "settings.testing": "\u6d4b\u8bd5\u4e2d...",
+  "settings.testSuccess": "\u8fde\u63a5\u6210\u529f",
+  "settings.testFailed": "\u8fde\u63a5\u5931\u8d25",
+  "settings.providerEngine": "\u76ee\u6807\u5f15\u64ce",
+  "settings.noProvidersForEngine": "\u6b64\u5f15\u64ce\u672a\u914d\u7f6e\u4f9b\u5e94\u5546\u3002",
+  "settings.activeProvider": "\u5df2\u6fc0\u6d3b",
+  "settings.enableProvider": "\u542f\u7528",
+  "settings.disableProvider": "\u7981\u7528",
+  "settings.providerEnabled": "\u5df2\u542f\u7528",
+  "settings.providerDisabled": "\u5df2\u7981\u7528",
+
+  // Dashboard Config
+  "dashboard.configStrip": "\u5f53\u524d\u914d\u7f6e",
+  "dashboard.engine": "\u5f15\u64ce",
+  "dashboard.model": "\u6a21\u578b",
+  "dashboard.provider": "\u4f9b\u5e94\u5546",
+  "dashboard.noActiveProvider": "\u672a\u914d\u7f6e",
+  "dashboard.goToSettings": "\u524d\u5f80\u914d\u7f6e",
+
+  // Workflow Management
+  "library.addWorkflow": "\u6dfb\u52a0\u5de5\u4f5c\u6d41",
+  "library.editWorkflow": "\u7f16\u8f91\u5de5\u4f5c\u6d41",
+  "library.editAgent": "\u7f16\u8f91\u667a\u80fd\u4f53",
+  "library.editSkill": "\u7f16\u8f91\u6280\u80fd",
+  "library.agentChain": "\u667a\u80fd\u4f53\u94fe",
+  "library.agentChainHint": "\u667a\u80fd\u4f53\u5c06\u6309\u6b64\u987a\u5e8f\u5728\u6bcf\u4e2a\u6536\u655b\u8f6e\u6b21\u4e2d\u6267\u884c",
+  "library.convergenceCycles": "\u6536\u655b\u8f6e\u6b21",
+  "library.chainPlaceholder": "\u4f8b\u5982 ceo, product, fullstack, critic",
+  "library.update": "\u66f4\u65b0",
+  "library.close": "\u5173\u95ed",
+  "library.fullContent": "\u5b8c\u6574\u5185\u5bb9",
+  "library.preview": "\u9884\u89c8",
+
+  // Advanced Provider Settings
+  "settings.advancedSettings": "\u9ad8\u7ea7\u8bbe\u7f6e",
+  "settings.anthropicVersion": "Anthropic \u7248\u672c",
+  "settings.apiFormat": "API \u683c\u5f0f",
+  "settings.forceStream": "\u5f3a\u5236\u6d41\u5f0f",
+  "settings.forceStreamDesc": "\u4f7f\u7528 SSE \u6d41\u5f0f\u8c03\u7528 API",
+  "settings.extraHeaders": "\u989d\u5916\u8bf7\u6c42\u5934",
+  "settings.addHeader": "\u6dfb\u52a0\u5934",
+
+  // Dashboard enhancements
+  "dashboard.viewDetail": "\u8be6\u60c5",
+  "dashboard.resetToGlobal": "\u91cd\u7f6e\u4e3a\u5168\u5c40",
+
+  // ProjectDetail enhancements
+  "projectDetail.activityFeed": "\u6d3b\u52a8\u6d41",
+  "projectDetail.noEvents": "\u8fd8\u6ca1\u6709\u4e8b\u4ef6\u3002\u542f\u52a8\u5faa\u73af\u5f00\u59cb\u3002",
+  "projectDetail.agentDetail": "\u8be6\u60c5",
+  "projectDetail.performance": "\u6027\u80fd",
+  "projectDetail.successRate": "\u6210\u529f\u7387",
+  "projectDetail.recentActivity": "\u6700\u8fd1\u6d3b\u52a8",
+  "projectDetail.noActivity": "\u8fd8\u6ca1\u6709\u8bb0\u5f55\u7684\u6d3b\u52a8\u3002",
+  "projectDetail.outcome": "\u7ed3\u679c",
+  "projectDetail.filesChanged": "\u53d8\u66f4\u6587\u4ef6",
+  "projectDetail.errorDetail": "\u9519\u8bef\u8be6\u60c5",
 };
 
 type TranslationKey = keyof typeof en;

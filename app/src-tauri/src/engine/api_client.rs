@@ -1,5 +1,39 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::io::BufRead;
 use std::time::Duration;
+
+// ===== Configurable API Call =====
+
+pub struct ApiCallConfig {
+    pub api_key: String,
+    pub api_base_url: String,
+    pub model: String,
+    pub system_prompt: String,
+    pub user_message: String,
+    pub timeout_secs: u32,
+    pub anthropic_version: String,
+    pub extra_headers: HashMap<String, String>,
+    pub force_stream: bool,
+    pub api_format: String, // "anthropic" | "claude-code" | "openai"
+}
+
+impl Default for ApiCallConfig {
+    fn default() -> Self {
+        Self {
+            api_key: String::new(),
+            api_base_url: "https://api.anthropic.com".to_string(),
+            model: "claude-sonnet-4-20250514".to_string(),
+            system_prompt: String::new(),
+            user_message: String::new(),
+            timeout_secs: 1800,
+            anthropic_version: "2023-06-01".to_string(),
+            extra_headers: HashMap::new(),
+            force_stream: false,
+            api_format: "anthropic".to_string(),
+        }
+    }
+}
 
 // ===== Anthropic API Types =====
 
@@ -7,8 +41,10 @@ use std::time::Duration;
 struct AnthropicRequest {
     model: String,
     max_tokens: u32,
-    system: String,
+    system: serde_json::Value,
     messages: Vec<ApiMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stream: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -68,6 +104,32 @@ struct OpenAiUsage {
     completion_tokens: u32,
 }
 
+// ===== SSE Streaming Types =====
+
+#[derive(Debug, Deserialize)]
+struct StreamEvent {
+    #[serde(rename = "type")]
+    event_type: String,
+    #[serde(default)]
+    delta: Option<StreamDelta>,
+    #[serde(default)]
+    message: Option<StreamMessageEnd>,
+}
+
+#[derive(Debug, Deserialize)]
+struct StreamDelta {
+    #[serde(rename = "type", default)]
+    delta_type: String,
+    #[serde(default)]
+    text: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct StreamMessageEnd {
+    #[serde(default)]
+    usage: Option<AnthropicUsage>,
+}
+
 // ===== Public Types =====
 
 pub struct CycleResponse {
@@ -76,40 +138,65 @@ pub struct CycleResponse {
     pub output_tokens: u32,
 }
 
-// ===== Anthropic API =====
+// ===== Unified API Call =====
 
-pub fn call_anthropic(
-    api_key: &str,
-    api_base_url: &str,
-    model: &str,
-    system_prompt: &str,
-    user_message: &str,
-    timeout_secs: u32,
-) -> Result<CycleResponse, String> {
-    let url = format!("{}/v1/messages", api_base_url.trim_end_matches('/'));
-    let resolved_model = resolve_anthropic_model(model);
+pub fn call_api(config: &ApiCallConfig) -> Result<CycleResponse, String> {
+    let format = config.api_format.as_str();
+    match format {
+        "openai" => call_openai(
+            &config.api_key,
+            &config.api_base_url,
+            &config.model,
+            &config.system_prompt,
+            &config.user_message,
+            config.timeout_secs,
+        ),
+        "anthropic" | "claude-code" | _ => {
+            if config.force_stream {
+                call_anthropic_streaming(config)
+            } else {
+                call_anthropic_configurable(config)
+            }
+        }
+    }
+}
+
+// ===== Anthropic API (configurable) =====
+
+fn call_anthropic_configurable(config: &ApiCallConfig) -> Result<CycleResponse, String> {
+    let url = format!("{}/v1/messages", config.api_base_url.trim_end_matches('/'));
+    let resolved_model = resolve_anthropic_model(&config.model);
+
+    let system_value = build_system_value(&config.system_prompt, &config.api_format);
 
     let body = AnthropicRequest {
         model: resolved_model,
         max_tokens: 4096,
-        system: system_prompt.to_string(),
+        system: system_value,
         messages: vec![ApiMessage {
             role: "user".to_string(),
-            content: user_message.to_string(),
+            content: config.user_message.clone(),
         }],
+        stream: None,
     };
 
     let agent = ureq::AgentBuilder::new()
-        .timeout_read(Duration::from_secs(timeout_secs as u64))
+        .timeout_read(Duration::from_secs(config.timeout_secs as u64))
         .timeout_write(Duration::from_secs(30))
         .build();
 
-    let result = agent
+    let mut req = agent
         .post(&url)
-        .set("x-api-key", api_key)
-        .set("anthropic-version", "2023-06-01")
-        .set("content-type", "application/json")
-        .send_json(&body);
+        .set("x-api-key", &config.api_key)
+        .set("anthropic-version", &config.anthropic_version)
+        .set("content-type", "application/json");
+
+    // Apply extra headers
+    for (key, value) in &config.extra_headers {
+        req = req.set(key, value);
+    }
+
+    let result = req.send_json(&body);
 
     match result {
         Ok(resp) => {
@@ -138,11 +225,139 @@ pub fn call_anthropic(
         }
         Err(ureq::Error::Status(code, resp)) => {
             let error_body = resp.into_string().unwrap_or_default();
-            let preview = truncate(&error_body, 500);
+            let preview = truncate(&error_body, 2000);
             Err(format!("Anthropic API error (HTTP {}): {}", code, preview))
         }
         Err(e) => Err(format!("Anthropic request failed: {}", e)),
     }
+}
+
+// ===== Anthropic Streaming API =====
+
+fn call_anthropic_streaming(config: &ApiCallConfig) -> Result<CycleResponse, String> {
+    let url = format!("{}/v1/messages", config.api_base_url.trim_end_matches('/'));
+    let resolved_model = resolve_anthropic_model(&config.model);
+
+    let system_value = build_system_value(&config.system_prompt, &config.api_format);
+
+    let body = AnthropicRequest {
+        model: resolved_model,
+        max_tokens: 4096,
+        system: system_value,
+        messages: vec![ApiMessage {
+            role: "user".to_string(),
+            content: config.user_message.clone(),
+        }],
+        stream: Some(true),
+    };
+
+    let agent = ureq::AgentBuilder::new()
+        .timeout_read(Duration::from_secs(config.timeout_secs as u64))
+        .timeout_write(Duration::from_secs(30))
+        .build();
+
+    let mut req = agent
+        .post(&url)
+        .set("x-api-key", &config.api_key)
+        .set("anthropic-version", &config.anthropic_version)
+        .set("content-type", "application/json");
+
+    for (key, value) in &config.extra_headers {
+        req = req.set(key, value);
+    }
+
+    let result = req.send_json(&body);
+
+    match result {
+        Ok(resp) => parse_sse_stream(resp),
+        Err(ureq::Error::Status(code, resp)) => {
+            let error_body = resp.into_string().unwrap_or_default();
+            let preview = truncate(&error_body, 2000);
+            Err(format!("Anthropic Streaming API error (HTTP {}): {}", code, preview))
+        }
+        Err(e) => Err(format!("Anthropic streaming request failed: {}", e)),
+    }
+}
+
+fn parse_sse_stream(resp: ureq::Response) -> Result<CycleResponse, String> {
+    let reader = std::io::BufReader::new(resp.into_reader());
+    let mut full_text = String::new();
+    let mut input_tokens: u32 = 0;
+    let mut output_tokens: u32 = 0;
+
+    for line_result in reader.lines() {
+        let line = line_result.map_err(|e| format!("Stream read error: {}", e))?;
+
+        // SSE format: lines starting with "data: "
+        if let Some(data) = line.strip_prefix("data: ") {
+            if data == "[DONE]" {
+                break;
+            }
+
+            if let Ok(event) = serde_json::from_str::<StreamEvent>(data) {
+                match event.event_type.as_str() {
+                    "content_block_delta" => {
+                        if let Some(delta) = &event.delta {
+                            if delta.delta_type == "text_delta" {
+                                if let Some(ref text) = delta.text {
+                                    full_text.push_str(text);
+                                }
+                            }
+                        }
+                    }
+                    "message_delta" => {
+                        // message_delta may contain final usage in delta
+                    }
+                    "message_start" => {
+                        // message_start may contain usage.input_tokens
+                        if let Some(msg) = &event.message {
+                            if let Some(usage) = &msg.usage {
+                                input_tokens = usage.input_tokens;
+                                output_tokens = usage.output_tokens;
+                            }
+                        }
+                    }
+                    "message_stop" => {
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    // Estimate output tokens from text length if not provided
+    if output_tokens == 0 && !full_text.is_empty() {
+        output_tokens = (full_text.len() as u32) / 4;
+    }
+
+    Ok(CycleResponse {
+        text: full_text,
+        input_tokens,
+        output_tokens,
+    })
+}
+
+// ===== Legacy call_anthropic (backward compat) =====
+
+pub fn call_anthropic(
+    api_key: &str,
+    api_base_url: &str,
+    model: &str,
+    system_prompt: &str,
+    user_message: &str,
+    timeout_secs: u32,
+) -> Result<CycleResponse, String> {
+    let config = ApiCallConfig {
+        api_key: api_key.to_string(),
+        api_base_url: api_base_url.to_string(),
+        model: model.to_string(),
+        system_prompt: system_prompt.to_string(),
+        user_message: user_message.to_string(),
+        timeout_secs,
+        ..Default::default()
+    };
+    call_anthropic_configurable(&config)
 }
 
 // ===== OpenAI API =====
@@ -206,16 +421,36 @@ pub fn call_openai(
         }
         Err(ureq::Error::Status(code, resp)) => {
             let error_body = resp.into_string().unwrap_or_default();
-            let preview = truncate(&error_body, 500);
+            let preview = truncate(&error_body, 2000);
             Err(format!("OpenAI API error (HTTP {}): {}", code, preview))
         }
         Err(e) => Err(format!("OpenAI request failed: {}", e)),
     }
 }
 
+// ===== System Value Builder =====
+
+fn build_system_value(system_prompt: &str, api_format: &str) -> serde_json::Value {
+    match api_format {
+        "claude-code" => {
+            // Claude Code compatible: system as array of content blocks
+            serde_json::json!([{"type": "text", "text": system_prompt}])
+        }
+        _ => {
+            // Standard Anthropic: system as plain string
+            serde_json::Value::String(system_prompt.to_string())
+        }
+    }
+}
+
 // ===== Model Resolution =====
 
 fn resolve_anthropic_model(model: &str) -> String {
+    // If model already looks like a full model ID (contains dashes), pass through directly
+    if model.starts_with("claude-") || model.contains('/') {
+        return model.to_string();
+    }
+    // Map tier names to latest model IDs
     match model {
         "opus" => "claude-opus-4-20250514".to_string(),
         "sonnet" => "claude-sonnet-4-20250514".to_string(),
