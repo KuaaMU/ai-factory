@@ -501,9 +501,168 @@ pub fn get_project_events(project_dir: String, limit: Option<usize>) -> Result<V
     Ok(Vec::new())
 }
 
+// ===== Auto Provider Selection =====
+
+#[derive(serde::Serialize)]
+pub struct SelectedProvider {
+    pub provider_id: String,
+    pub provider_name: String,
+    pub provider_type: String,
+    pub api_base_url: String,
+    pub model: String,
+    pub api_format: String,
+}
+
+fn auto_select_provider_internal() -> Result<(ApiCredentials, SelectedProvider), String> {
+    use crate::commands::settings::derive_api_config;
+
+    // Priority order for provider_type
+    let priority: &[&str] = &["anthropic", "openai", "openrouter", "deepseek", "groq", "mistral", "google", "custom"];
+
+    // 1. Check configured providers (enabled + healthy first)
+    if let Ok(settings) = load_app_settings() {
+        let mut candidates: Vec<&AiProvider> = settings.providers.iter()
+            .filter(|p| p.enabled && !p.api_key.is_empty())
+            .collect();
+
+        // Sort by: healthy first, then by priority order
+        candidates.sort_by(|a, b| {
+            let a_health = if a.is_healthy { 0 } else { 1 };
+            let b_health = if b.is_healthy { 0 } else { 1 };
+            if a_health != b_health {
+                return a_health.cmp(&b_health);
+            }
+            let a_prio = priority.iter().position(|&t| t == a.provider_type).unwrap_or(99);
+            let b_prio = priority.iter().position(|&t| t == b.provider_type).unwrap_or(99);
+            a_prio.cmp(&b_prio)
+        });
+
+        if let Some(provider) = candidates.first() {
+            let (api_format, default_url) = derive_api_config(&provider.provider_type);
+            let api_base_url = if provider.api_base_url.is_empty() {
+                default_url.to_string()
+            } else {
+                provider.api_base_url.clone()
+            };
+            let model = if provider.default_model.is_empty() {
+                "auto".to_string()
+            } else {
+                provider.default_model.clone()
+            };
+
+            let creds = ApiCredentials {
+                engine_type: provider.provider_type.clone(),
+                api_key: provider.api_key.clone(),
+                api_base_url: api_base_url.clone(),
+                model: model.clone(),
+                anthropic_version: if provider.anthropic_version.is_empty() {
+                    "2023-06-01".to_string()
+                } else {
+                    provider.anthropic_version.clone()
+                },
+                extra_headers: provider.extra_headers.clone(),
+                force_stream: provider.force_stream,
+                api_format: api_format.to_string(),
+            };
+            let selected = SelectedProvider {
+                provider_id: provider.id.clone(),
+                provider_name: provider.name.clone(),
+                provider_type: provider.provider_type.clone(),
+                api_base_url,
+                model,
+                api_format: api_format.to_string(),
+            };
+            return Ok((creds, selected));
+        }
+    }
+
+    // 2. Environment variables
+    let env_checks: &[(&str, &str)] = &[
+        ("ANTHROPIC_API_KEY", "anthropic"),
+        ("OPENAI_API_KEY", "openai"),
+        ("OPENROUTER_API_KEY", "openrouter"),
+        ("DEEPSEEK_API_KEY", "deepseek"),
+        ("GROQ_API_KEY", "groq"),
+        ("GOOGLE_API_KEY", "google"),
+    ];
+
+    for (env_var, ptype) in env_checks {
+        if let Ok(key) = std::env::var(env_var) {
+            if !key.trim().is_empty() {
+                let (api_format, default_url) = derive_api_config(ptype);
+                let creds = ApiCredentials {
+                    engine_type: ptype.to_string(),
+                    api_key: key.trim().to_string(),
+                    api_base_url: default_url.to_string(),
+                    model: "auto".to_string(),
+                    anthropic_version: "2023-06-01".to_string(),
+                    extra_headers: HashMap::new(),
+                    force_stream: false,
+                    api_format: api_format.to_string(),
+                };
+                let selected = SelectedProvider {
+                    provider_id: format!("env-{}", ptype),
+                    provider_name: format!("env:{}", env_var),
+                    provider_type: ptype.to_string(),
+                    api_base_url: default_url.to_string(),
+                    model: "auto".to_string(),
+                    api_format: api_format.to_string(),
+                };
+                return Ok((creds, selected));
+            }
+        }
+    }
+
+    // 3. Auto-detected providers
+    if let Ok(detected) = crate::commands::provider_detect::detect_providers() {
+        if let Some(dp) = detected.first() {
+            let (api_format, _) = derive_api_config(&dp.provider_type);
+            let creds = ApiCredentials {
+                engine_type: dp.provider_type.clone(),
+                api_key: dp.api_key.clone(),
+                api_base_url: dp.api_base_url.clone(),
+                model: dp.suggested_model.clone(),
+                anthropic_version: "2023-06-01".to_string(),
+                extra_headers: HashMap::new(),
+                force_stream: false,
+                api_format: api_format.to_string(),
+            };
+            let selected = SelectedProvider {
+                provider_id: format!("auto-{}", dp.provider_type),
+                provider_name: dp.suggested_name.clone(),
+                provider_type: dp.provider_type.clone(),
+                api_base_url: dp.api_base_url.clone(),
+                model: dp.suggested_model.clone(),
+                api_format: api_format.to_string(),
+            };
+            return Ok((creds, selected));
+        }
+    }
+
+    Err("No AI provider available. Please configure at least one provider in Settings.".to_string())
+}
+
+#[command]
+pub fn auto_select_provider() -> Result<SelectedProvider, String> {
+    let (_, selected) = auto_select_provider_internal()?;
+    Ok(selected)
+}
+
 // ===== API Credential Resolution =====
 
 fn resolve_api_credentials(engine: &str, model: &str) -> Result<ApiCredentials, String> {
+    use crate::commands::settings::derive_api_config;
+
+    // If engine is "auto" or empty, use auto-select
+    if engine.is_empty() || engine == "auto" {
+        let (mut creds, _) = auto_select_provider_internal()?;
+        // Override model if specified
+        if !model.is_empty() && model != "auto" {
+            creds.model = model.to_string();
+        }
+        return Ok(creds);
+    }
+
     // 1. Try app-level settings (stored providers) — prefer engine field match
     if let Ok(settings) = load_app_settings() {
         let provider_type = match engine {
@@ -512,27 +671,25 @@ fn resolve_api_credentials(engine: &str, model: &str) -> Result<ApiCredentials, 
             other => other,
         };
 
-        // First: match by engine field (new per-engine design)
+        // First: match by provider_type
         let provider = settings
             .providers
             .iter()
-            .find(|p| p.enabled && p.engine == engine)
-            // Fallback: match by provider_type (legacy flat list)
+            .find(|p| p.enabled && (p.provider_type == provider_type || p.provider_type == engine))
+            // Fallback: match by engine field (legacy)
             .or_else(|| {
                 settings
                     .providers
                     .iter()
-                    .find(|p| p.enabled && (p.provider_type == provider_type || p.provider_type == engine))
+                    .find(|p| p.enabled && p.engine == engine)
             });
 
         if let Some(provider) = provider {
             if !provider.api_key.is_empty() {
+                let (derived_format, derived_url) = derive_api_config(&provider.provider_type);
+
                 let api_base_url = if provider.api_base_url.is_empty() {
-                    match engine {
-                        "claude" => "https://api.anthropic.com".to_string(),
-                        "openai" | "codex" => "https://api.openai.com".to_string(),
-                        _ => provider.api_base_url.clone(),
-                    }
+                    derived_url.to_string()
                 } else {
                     provider.api_base_url.clone()
                 };
@@ -542,14 +699,19 @@ fn resolve_api_credentials(engine: &str, model: &str) -> Result<ApiCredentials, 
                 let resolved_model = if !provider.default_model.is_empty()
                     && provider.default_model.contains('-')
                 {
-                    // Provider has a specific model ID (e.g. "claude-opus-4-1-20250805")
                     provider.default_model.clone()
                 } else {
                     model.to_string()
                 };
 
+                let api_format = if !provider.api_format.is_empty() {
+                    provider.api_format.clone()
+                } else {
+                    derived_format.to_string()
+                };
+
                 return Ok(ApiCredentials {
-                    engine_type: provider_type.to_string(),
+                    engine_type: provider.provider_type.clone(),
                     api_key: provider.api_key.clone(),
                     api_base_url,
                     model: resolved_model,
@@ -560,11 +722,7 @@ fn resolve_api_credentials(engine: &str, model: &str) -> Result<ApiCredentials, 
                     },
                     extra_headers: provider.extra_headers.clone(),
                     force_stream: provider.force_stream,
-                    api_format: if provider.api_format.is_empty() {
-                        "anthropic".to_string()
-                    } else {
-                        provider.api_format.clone()
-                    },
+                    api_format,
                 });
             }
         }
@@ -572,27 +730,28 @@ fn resolve_api_credentials(engine: &str, model: &str) -> Result<ApiCredentials, 
 
     // 2. Try environment variables
     let env_configs = match engine {
-        "claude" => vec![("ANTHROPIC_API_KEY", "anthropic", "https://api.anthropic.com")],
-        "openai" | "codex" => vec![("OPENAI_API_KEY", "openai", "https://api.openai.com")],
+        "claude" => vec![("ANTHROPIC_API_KEY", "anthropic")],
+        "openai" | "codex" => vec![("OPENAI_API_KEY", "openai")],
         _ => vec![
-            ("ANTHROPIC_API_KEY", "anthropic", "https://api.anthropic.com"),
-            ("OPENAI_API_KEY", "openai", "https://api.openai.com"),
-            ("OPENROUTER_API_KEY", "openrouter", "https://openrouter.ai/api/v1"),
+            ("ANTHROPIC_API_KEY", "anthropic"),
+            ("OPENAI_API_KEY", "openai"),
+            ("OPENROUTER_API_KEY", "openrouter"),
         ],
     };
 
-    for (env_var, engine_type, base_url) in &env_configs {
+    for (env_var, ptype) in &env_configs {
         if let Ok(key) = std::env::var(env_var) {
             if !key.trim().is_empty() {
+                let (api_format, base_url) = derive_api_config(ptype);
                 return Ok(ApiCredentials {
-                    engine_type: engine_type.to_string(),
+                    engine_type: ptype.to_string(),
                     api_key: key.trim().to_string(),
                     api_base_url: base_url.to_string(),
                     model: model.to_string(),
                     anthropic_version: "2023-06-01".to_string(),
                     extra_headers: HashMap::new(),
                     force_stream: false,
-                    api_format: "anthropic".to_string(),
+                    api_format: api_format.to_string(),
                 });
             }
         }
@@ -606,6 +765,7 @@ fn resolve_api_credentials(engine: &str, model: &str) -> Result<ApiCredentials, 
             other => other,
         };
         if let Some(dp) = detected.iter().find(|d| d.provider_type == provider_type) {
+            let (api_format, _) = derive_api_config(&dp.provider_type);
             return Ok(ApiCredentials {
                 engine_type: dp.provider_type.clone(),
                 api_key: dp.api_key.clone(),
@@ -614,7 +774,7 @@ fn resolve_api_credentials(engine: &str, model: &str) -> Result<ApiCredentials, 
                 anthropic_version: "2023-06-01".to_string(),
                 extra_headers: HashMap::new(),
                 force_stream: false,
-                api_format: "anthropic".to_string(),
+                api_format: api_format.to_string(),
             });
         }
     }

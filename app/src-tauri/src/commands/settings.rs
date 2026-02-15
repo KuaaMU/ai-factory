@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use tauri::command;
 use crate::models::*;
+use crate::engine::api_client;
 
 fn get_settings_path() -> PathBuf {
     dirs::data_dir()
@@ -103,18 +104,87 @@ pub fn remove_provider(provider_id: String) -> Result<AppSettings, String> {
     Ok(settings)
 }
 
+/// Maps provider_type to (api_format, default_base_url).
+pub fn derive_api_config(provider_type: &str) -> (&'static str, &'static str) {
+    match provider_type {
+        "anthropic" | "claude" => ("anthropic", "https://api.anthropic.com"),
+        "openai" => ("openai", "https://api.openai.com/v1"),
+        "openrouter" => ("openai", "https://openrouter.ai/api/v1"),
+        "deepseek" => ("openai", "https://api.deepseek.com/v1"),
+        "groq" => ("openai", "https://api.groq.com/openai/v1"),
+        "mistral" => ("openai", "https://api.mistral.ai/v1"),
+        "google" | "gemini" => ("openai", "https://generativelanguage.googleapis.com/v1beta/openai"),
+        _ => ("openai", ""),
+    }
+}
+
 #[command]
-pub fn test_provider(provider: AiProvider) -> Result<bool, String> {
-    // Basic validation
+pub fn test_provider(provider: AiProvider) -> Result<String, String> {
+    // Basic field validation
     if provider.api_key.is_empty() {
         return Err("API key is required".to_string());
     }
 
-    if provider.api_base_url.is_empty() && provider.provider_type != "claude" {
-        return Err("API base URL is required for non-Claude providers".to_string());
-    }
+    let (derived_format, derived_url) = derive_api_config(&provider.provider_type);
 
-    // For now, just validate the fields are present.
-    // A full test would make an HTTP request to the provider's API.
-    Ok(true)
+    let api_base_url = if provider.api_base_url.is_empty() {
+        if derived_url.is_empty() {
+            return Err("API base URL is required for custom providers".to_string());
+        }
+        derived_url.to_string()
+    } else {
+        provider.api_base_url.clone()
+    };
+
+    // Use provider's explicit api_format if set, otherwise derive from provider_type
+    let api_format = if !provider.api_format.is_empty() && provider.api_format != "anthropic" && provider.provider_type != "anthropic" && provider.provider_type != "claude" {
+        provider.api_format.clone()
+    } else {
+        derived_format.to_string()
+    };
+
+    let model = if provider.default_model.is_empty() {
+        match provider.provider_type.as_str() {
+            "anthropic" | "claude" => "claude-sonnet-4-20250514".to_string(),
+            "openai" => "gpt-4o-mini".to_string(),
+            "openrouter" => "anthropic/claude-sonnet-4-20250514".to_string(),
+            "deepseek" => "deepseek-chat".to_string(),
+            "groq" => "llama-3.1-8b-instant".to_string(),
+            "mistral" => "mistral-small-latest".to_string(),
+            _ => provider.default_model.clone(),
+        }
+    } else {
+        provider.default_model.clone()
+    };
+
+    let config = api_client::ApiCallConfig {
+        api_key: provider.api_key.clone(),
+        api_base_url,
+        model,
+        system_prompt: "You are a connection test. Respond with exactly: OK".to_string(),
+        user_message: "Say OK".to_string(),
+        timeout_secs: 30,
+        anthropic_version: if provider.anthropic_version.is_empty() {
+            "2023-06-01".to_string()
+        } else {
+            provider.anthropic_version.clone()
+        },
+        extra_headers: provider.extra_headers.clone(),
+        force_stream: provider.force_stream,
+        api_format,
+    };
+
+    match api_client::call_api(&config) {
+        Ok(resp) => Ok(format!(
+            "Connection successful. Tokens: {} in / {} out. Response: {}",
+            resp.input_tokens,
+            resp.output_tokens,
+            if resp.text.len() > 200 {
+                format!("{}...", &resp.text[..200])
+            } else {
+                resp.text
+            }
+        )),
+        Err(e) => Err(e),
+    }
 }

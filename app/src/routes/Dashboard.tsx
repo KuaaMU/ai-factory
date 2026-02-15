@@ -47,14 +47,14 @@ function ConfigStrip({ settings }: { readonly settings: AppSettings | undefined 
   if (!settings) return null;
 
   const engine = settings.default_engine;
-  const engineLabel = ENGINE_LABELS[engine] ?? engine;
-  const engineColor = ENGINE_COLORS[engine] ?? "bg-muted text-muted-foreground";
-  const dotColor = ENGINE_DOT_COLORS[engine] ?? "bg-gray-400";
+  const isAuto = engine === "auto" || engine === "";
+  const engineLabel = isAuto ? "Auto" : (ENGINE_LABELS[engine] ?? engine);
+  const engineColor = isAuto ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : (ENGINE_COLORS[engine] ?? "bg-muted text-muted-foreground");
+  const dotColor = isAuto ? "bg-green-500" : (ENGINE_DOT_COLORS[engine] ?? "bg-gray-400");
 
   const providers: readonly AiProvider[] = settings.providers ?? [];
-  const activeProvider = providers.find(
-    (p) => p.engine === engine && p.enabled,
-  ) ?? providers.find((p) => p.enabled);
+  const activeProvider = providers.find((p) => p.enabled);
+  const activeProviderCount = providers.filter((p) => p.enabled).length;
 
   return (
     <div className="flex items-center gap-4 rounded-lg border border-border bg-card px-4 py-3">
@@ -80,6 +80,11 @@ function ConfigStrip({ settings }: { readonly settings: AppSettings | undefined 
               <span className={cn("inline-flex h-2 w-2 rounded-full", activeProvider.is_healthy ? "bg-green-500" : "bg-yellow-500")} />
               <span className="text-xs font-medium text-foreground">{activeProvider.name}</span>
               <span className="rounded bg-secondary px-1.5 py-0.5 text-xs text-muted-foreground">{activeProvider.default_model}</span>
+              {activeProviderCount > 1 && (
+                <span className="rounded bg-secondary px-1.5 py-0.5 text-xs text-muted-foreground">
+                  +{activeProviderCount - 1}
+                </span>
+              )}
             </div>
           ) : (
             <span className="text-xs text-muted-foreground/70">{t("dashboard.noActiveProvider")}</span>

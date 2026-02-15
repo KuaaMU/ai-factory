@@ -6,6 +6,7 @@ import { useI18n } from "@/lib/i18n";
 import type { ProjectRuntimeOverride } from "@/lib/types";
 
 const ENGINE_OPTIONS = [
+  { value: "auto", label: "Auto" },
   { value: "claude", label: "Claude Code" },
   { value: "codex", label: "Codex CLI" },
   { value: "opencode", label: "OpenCode" },
@@ -13,6 +14,7 @@ const ENGINE_OPTIONS = [
 ] as const;
 
 const MODEL_OPTIONS = [
+  { value: "auto", label: "Auto" },
   { value: "opus", label: "Opus" },
   { value: "sonnet", label: "Sonnet" },
   { value: "haiku", label: "Haiku" },

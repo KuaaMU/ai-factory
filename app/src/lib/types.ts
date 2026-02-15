@@ -183,6 +183,37 @@ export interface GenerateResult {
   readonly workflow_count: number;
 }
 
+// ===== Provider Presets =====
+
+export interface ModelOption {
+  readonly id: string;
+  readonly name: string;
+  readonly tier: string;
+  readonly context_window: number;
+}
+
+export interface ProviderPreset {
+  readonly id: string;
+  readonly name: string;
+  readonly provider_type: string;
+  readonly default_url: string;
+  readonly icon: string;
+  readonly icon_color: string;
+  readonly models: readonly ModelOption[];
+  readonly description: string;
+}
+
+// ===== Selected Provider (auto-select result) =====
+
+export interface SelectedProvider {
+  readonly provider_id: string;
+  readonly provider_name: string;
+  readonly provider_type: string;
+  readonly api_base_url: string;
+  readonly model: string;
+  readonly api_format: string;
+}
+
 // ===== Detected Provider (auto-detection) =====
 
 export interface DetectedProvider {

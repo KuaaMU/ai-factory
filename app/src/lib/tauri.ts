@@ -26,6 +26,8 @@ import type {
   LibraryState,
   ProjectRuntimeOverride,
   ProjectEvent,
+  ProviderPreset,
+  SelectedProvider,
 } from "./types";
 
 // ===== Bootstrap Commands =====
@@ -189,7 +191,7 @@ export async function removeProvider(providerId: string): Promise<AppSettings> {
   return invoke("remove_provider", { providerId });
 }
 
-export async function testProvider(provider: AiProvider): Promise<boolean> {
+export async function testProvider(provider: AiProvider): Promise<string> {
   return invoke("test_provider", { provider });
 }
 
@@ -333,6 +335,18 @@ export async function browseRepoSkills(repoId: string): Promise<readonly RepoIte
 
 export async function installRepoSkill(repoId: string, skillPath: string): Promise<SkillInfo> {
   return invoke("install_repo_skill", { repoId, skillPath });
+}
+
+// ===== Provider Preset Commands =====
+
+export async function getProviderPresets(): Promise<readonly ProviderPreset[]> {
+  return invoke("get_provider_presets");
+}
+
+// ===== Auto-Select Provider =====
+
+export async function autoSelectProvider(): Promise<SelectedProvider> {
+  return invoke("auto_select_provider");
 }
 
 // ===== Test API Call =====

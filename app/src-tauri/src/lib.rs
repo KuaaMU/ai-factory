@@ -9,6 +9,7 @@ use commands::library as library_cmd;
 use commands::settings as settings_cmd;
 use commands::system as system_cmd;
 use commands::provider_detect as provider_detect_cmd;
+use commands::provider_presets as provider_presets_cmd;
 use commands::mcp as mcp_cmd;
 use commands::skill_manager as skill_mgr_cmd;
 use commands::repo_manager as repo_mgr_cmd;
@@ -44,6 +45,7 @@ pub fn run() {
             runtime_cmd::get_project_runtime_override,
             runtime_cmd::set_project_runtime_override,
             runtime_cmd::get_project_events,
+            runtime_cmd::auto_select_provider,
             // Library commands
             library_cmd::list_personas,
             library_cmd::list_skills,
@@ -65,6 +67,8 @@ pub fn run() {
             provider_detect_cmd::detect_providers,
             provider_detect_cmd::export_providers,
             provider_detect_cmd::import_providers,
+            // Provider presets commands
+            provider_presets_cmd::get_provider_presets,
             // System commands
             system_cmd::detect_system,
             system_cmd::install_tool,

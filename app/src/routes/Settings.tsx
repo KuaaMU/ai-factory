@@ -38,7 +38,7 @@ import {
   importProviders,
   detectSystem,
   installTool,
-  resolveRuntimeConfig,
+  getProviderPresets,
 } from "@/lib/tauri";
 import { useI18n } from "@/lib/i18n";
 import type {
@@ -46,36 +46,10 @@ import type {
   AiProvider,
   ToolInfo,
   DetectedProvider,
-  ResolvedRuntimeConfig,
+  ProviderPreset,
 } from "@/lib/types";
 
 // ===== Constants =====
-
-const PROVIDER_PRESETS: Record<
-  string,
-  { name: string; api_base_url: string; default_model: string }
-> = {
-  claude: {
-    name: "Anthropic (Claude)",
-    api_base_url: "https://api.anthropic.com",
-    default_model: "claude-sonnet-4-20250514",
-  },
-  openai: {
-    name: "OpenAI",
-    api_base_url: "https://api.openai.com/v1",
-    default_model: "gpt-4o",
-  },
-  openrouter: {
-    name: "OpenRouter",
-    api_base_url: "https://openrouter.ai/api/v1",
-    default_model: "anthropic/claude-sonnet-4-20250514",
-  },
-  custom: {
-    name: "Custom Provider",
-    api_base_url: "",
-    default_model: "",
-  },
-};
 
 type SettingsTab = "general" | "providers" | "system";
 
@@ -269,8 +243,7 @@ function GeneralTab({
   const { t, language, setLanguage } = useI18n();
   const queryClient = useQueryClient();
 
-  const [engine, setEngine] = useState("claude");
-  const [defaultModel, setDefaultModel] = useState("sonnet");
+  const [defaultProvider, setDefaultProvider] = useState("auto");
   const [maxDailyBudget, setMaxDailyBudget] = useState("50");
   const [alertAtBudget, setAlertAtBudget] = useState("30");
   const [loopInterval, setLoopInterval] = useState("30");
@@ -281,8 +254,12 @@ function GeneralTab({
 
   useEffect(() => {
     if (settings) {
-      setEngine(settings.default_engine);
-      setDefaultModel(settings.default_model);
+      // Map old engine/model to default_provider (backward compat)
+      if (settings.default_engine && settings.default_engine !== "auto") {
+        setDefaultProvider(settings.default_engine);
+      } else {
+        setDefaultProvider("auto");
+      }
       setMaxDailyBudget(String(settings.max_daily_budget));
       setAlertAtBudget(String(settings.alert_at_budget));
       setLoopInterval(String(settings.loop_interval));
@@ -338,8 +315,8 @@ function GeneralTab({
 
   const handleSave = () => {
     const updated: AppSettings = {
-      default_engine: engine,
-      default_model: defaultModel,
+      default_engine: defaultProvider === "auto" ? "auto" : defaultProvider,
+      default_model: "auto",
       max_daily_budget: parseFloat(maxDailyBudget) || 50,
       alert_at_budget: parseFloat(alertAtBudget) || 30,
       loop_interval: parseInt(loopInterval) || 30,
@@ -397,34 +374,21 @@ function GeneralTab({
         <h2 className="font-semibold">{t("settings.runtimeDefaults")}</h2>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <div>
+          <div className="sm:col-span-2">
             <label className="mb-1 block text-sm font-medium">
-              {t("settings.defaultEngine")}
+              {t("settings.defaultProvider")}
             </label>
             <select
-              value={engine}
-              onChange={(e) => setEngine(e.target.value)}
+              value={defaultProvider}
+              onChange={(e) => setDefaultProvider(e.target.value)}
               className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             >
-              <option value="claude">Claude Code</option>
-              <option value="codex">Codex CLI</option>
-              <option value="opencode">OpenCode</option>
+              <option value="auto">{t("settings.autoSelectProvider")}</option>
+              {(settings?.providers ?? []).filter((p) => p.enabled).map((p) => (
+                <option key={p.id} value={p.provider_type}>{p.name} ({p.provider_type})</option>
+              ))}
             </select>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium">
-              {t("settings.model")}
-            </label>
-            <select
-              value={defaultModel}
-              onChange={(e) => setDefaultModel(e.target.value)}
-              className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="opus">Opus (deepest reasoning)</option>
-              <option value="sonnet">Sonnet (best coding)</option>
-              <option value="haiku">Haiku (fastest)</option>
-            </select>
+            <p className="mt-1 text-xs text-muted-foreground">{t("settings.autoSelectProviderDesc")}</p>
           </div>
 
           <div>
@@ -514,25 +478,7 @@ function GeneralTab({
   );
 }
 
-// ===== Tab 2: AI Providers (per-engine design) =====
-
-type EngineTab = "claude" | "codex" | "opencode" | "gemini";
-
-interface EngineConfig {
-  readonly id: EngineTab;
-  readonly labelKey: string;
-  readonly descKey: string;
-  readonly color: string;
-  readonly dotColor: string;
-  readonly defaultPreset: string;
-}
-
-const ENGINE_CONFIGS: readonly EngineConfig[] = [
-  { id: "claude", labelKey: "settings.engineClaude", descKey: "settings.engineClaudeDesc", color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200", dotColor: "bg-purple-500", defaultPreset: "claude" },
-  { id: "codex", labelKey: "settings.engineCodex", descKey: "settings.engineCodexDesc", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200", dotColor: "bg-blue-500", defaultPreset: "openai" },
-  { id: "opencode", labelKey: "settings.engineOpencode", descKey: "settings.engineOpencodeDesc", color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200", dotColor: "bg-emerald-500", defaultPreset: "openrouter" },
-  { id: "gemini", labelKey: "settings.engineGemini", descKey: "settings.engineGeminiDesc", color: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200", dotColor: "bg-amber-500", defaultPreset: "custom" },
-];
+// ===== Tab 2: AI Providers (preset-driven design) =====
 
 // ===== Quick Setup Panel =====
 
@@ -566,17 +512,7 @@ function QuickSetupPanel({
     }
   };
 
-  const guessEngine = (dp: DetectedProvider): EngineTab => {
-    const src = dp.source.toLowerCase();
-    const pt = dp.provider_type.toLowerCase();
-    if (src.includes("claude") || pt.includes("anthropic") || pt === "claude") return "claude";
-    if (src.includes("codex") || pt.includes("openai")) return "codex";
-    if (src.includes("gemini") || pt.includes("gemini") || pt.includes("google")) return "gemini";
-    return "opencode";
-  };
-
   const handleImportOne = (dp: DetectedProvider) => {
-    const engine = guessEngine(dp);
     const provider: AiProvider = {
       id: `${dp.provider_type}-${Date.now()}`,
       name: dp.suggested_name,
@@ -587,7 +523,7 @@ function QuickSetupPanel({
       enabled: true,
       is_healthy: true,
       last_error: null,
-      engine,
+      engine: "claude",
     };
     onImport(provider);
     setImportedKeys((prev) => new Set([...prev, dp.api_key]));
@@ -697,8 +633,6 @@ function QuickSetupPanel({
           </div>
           {detected.map((dp, idx) => {
             const isImported = importedKeys.has(dp.api_key);
-            const engine = guessEngine(dp);
-            const engineCfg = ENGINE_CONFIGS.find((e) => e.id === engine);
             return (
               <div key={`${dp.source}-${idx}`} className="flex items-center gap-3 rounded-md border border-input bg-secondary p-3">
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${sourceColor(dp.source)}`}>
@@ -708,9 +642,6 @@ function QuickSetupPanel({
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium">{dp.suggested_name}</p>
                     <span className="rounded-full bg-secondary px-2 py-0.5 text-xs">{dp.provider_type}</span>
-                    {engineCfg && (
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${engineCfg.color}`}>{t(engineCfg.labelKey as never)}</span>
-                    )}
                   </div>
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                     <span>{dp.api_key_preview}</span>
@@ -736,62 +667,38 @@ function QuickSetupPanel({
   );
 }
 
-// ===== Provider Edit Modal =====
+// ===== Provider Edit Modal (preset-driven) =====
 
 function ProviderEditModal({
   provider,
-  engine,
+  preset,
   onSave,
   onClose,
   isPending,
 }: {
   readonly provider: AiProvider | null;
-  readonly engine: EngineTab;
+  readonly preset: ProviderPreset | null;
   readonly onSave: (provider: AiProvider) => void;
   readonly onClose: () => void;
   readonly isPending: boolean;
 }) {
   const { t } = useI18n();
   const isEdit = provider !== null;
-  const engineCfg = ENGINE_CONFIGS.find((e) => e.id === engine);
-  const defaultPresetKey = engineCfg?.defaultPreset ?? "claude";
-  const defaultPreset = PROVIDER_PRESETS[defaultPresetKey] ?? PROVIDER_PRESETS.claude;
 
-  const [name, setName] = useState(provider?.name ?? defaultPreset.name);
-  const [providerType, setProviderType] = useState(provider?.provider_type ?? defaultPresetKey);
+  const [name, setName] = useState(provider?.name ?? preset?.name ?? "");
+  const [providerType] = useState(provider?.provider_type ?? preset?.provider_type ?? "custom");
   const [apiKey, setApiKey] = useState(provider?.api_key ?? "");
-  const [apiBaseUrl, setApiBaseUrl] = useState(provider?.api_base_url ?? defaultPreset.api_base_url);
-  const [defaultModel, setDefaultModel] = useState(provider?.default_model ?? defaultPreset.default_model);
+  const [apiBaseUrl, setApiBaseUrl] = useState(provider?.api_base_url ?? preset?.default_url ?? "");
+  const [defaultModel, setDefaultModel] = useState(provider?.default_model ?? (preset?.models[0]?.id ?? ""));
   const [showKey, setShowKey] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [isTesting, setIsTesting] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [anthropicVersion, setAnthropicVersion] = useState(provider?.anthropic_version ?? "2023-06-01");
-  const [forceStream, setForceStream] = useState(provider?.force_stream ?? false);
-  const [apiFormat, setApiFormat] = useState(provider?.api_format ?? "anthropic");
-  const [extraHeaders, setExtraHeaders] = useState(() => {
-    const h = provider?.extra_headers ?? {};
-    return Object.entries(h).map(([k, v]) => ({ key: k, value: v }));
-  });
-
-  const handleTypeChange = (type: string) => {
-    setProviderType(type);
-    const preset = PROVIDER_PRESETS[type];
-    if (preset && !isEdit) {
-      setName(preset.name);
-      setApiBaseUrl(preset.api_base_url);
-      setDefaultModel(preset.default_model);
-    }
-  };
 
   const handleTest = async () => {
     setIsTesting(true);
     setTestResult(null);
     try {
-      const headersObj = Object.fromEntries(
-        extraHeaders.filter((h) => h.key.trim()).map((h) => [h.key, h.value]),
-      );
-      await testProvider({
+      const result = await testProvider({
         id: provider?.id ?? "test",
         name,
         provider_type: providerType,
@@ -801,13 +708,13 @@ function ProviderEditModal({
         enabled: true,
         is_healthy: true,
         last_error: null,
-        engine,
-        anthropic_version: anthropicVersion,
-        extra_headers: headersObj,
-        force_stream: forceStream,
-        api_format: apiFormat,
+        engine: "claude",
+        anthropic_version: "2023-06-01",
+        extra_headers: {},
+        force_stream: false,
+        api_format: "",
       });
-      setTestResult({ success: true, message: t("settings.testSuccess") });
+      setTestResult({ success: true, message: result });
     } catch (err) {
       setTestResult({ success: false, message: String(err) });
     } finally {
@@ -817,62 +724,59 @@ function ProviderEditModal({
 
   const handleSubmit = () => {
     if (!apiKey.trim()) return;
-    const headersObj = Object.fromEntries(
-      extraHeaders.filter((h) => h.key.trim()).map((h) => [h.key, h.value]),
-    );
     onSave({
-      id: provider?.id ?? `${engine}-${providerType}-${Date.now()}`,
+      id: provider?.id ?? `${providerType}-${Date.now()}`,
       name,
       provider_type: providerType,
       api_key: apiKey,
       api_base_url: apiBaseUrl,
       default_model: defaultModel,
       enabled: provider?.enabled ?? true,
-      is_healthy: provider?.is_healthy ?? true,
-      last_error: provider?.last_error ?? null,
-      engine,
-      anthropic_version: anthropicVersion,
-      extra_headers: headersObj,
-      force_stream: forceStream,
-      api_format: apiFormat,
+      is_healthy: testResult?.success ?? (provider?.is_healthy ?? true),
+      last_error: testResult?.success === false ? testResult.message : (provider?.last_error ?? null),
+      engine: "claude",
+      anthropic_version: "2023-06-01",
+      extra_headers: {},
+      force_stream: false,
+      api_format: "",
     });
   };
+
+  const models = preset?.models ?? [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div className="mx-4 w-full max-w-lg rounded-lg border border-border bg-card p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-semibold text-foreground">
-          {isEdit ? t("settings.editProvider") : t("settings.addProvider")}
-        </h2>
-        {engineCfg && (
-          <p className="mt-1 text-xs text-muted-foreground">{t(engineCfg.descKey as never)}</p>
-        )}
+        <div className="flex items-center gap-3">
+          {preset && (
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-lg"
+              style={{ backgroundColor: `${preset.icon_color}20`, color: preset.icon_color }}
+            >
+              <Cpu className="h-5 w-5" />
+            </div>
+          )}
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">
+              {isEdit ? t("settings.editProvider") : `${t("settings.addProvider")} - ${preset?.name ?? "Custom"}`}
+            </h2>
+            {preset && <p className="text-xs text-muted-foreground">{preset.description}</p>}
+          </div>
+        </div>
 
         <div className="mt-4 space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium">{t("settings.providerType")}</label>
-              <select
-                value={providerType}
-                onChange={(e) => handleTypeChange(e.target.value)}
-                className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                {Object.entries(PROVIDER_PRESETS).map(([key, preset]) => (
-                  <option key={key} value={key}>{preset.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium">{t("settings.displayName")}</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
+          {/* Display Name */}
+          <div>
+            <label className="mb-1 block text-xs font-medium">{t("settings.displayName")}</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
           </div>
 
+          {/* API Key */}
           <div>
             <label className="mb-1 block text-xs font-medium">{t("settings.apiKey")}</label>
             <div className="relative">
@@ -893,134 +797,52 @@ function ProviderEditModal({
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium">{t("settings.apiBaseUrl")}</label>
-              <input
-                type="text"
-                value={apiBaseUrl}
-                onChange={(e) => setApiBaseUrl(e.target.value)}
+          {/* API Base URL */}
+          <div>
+            <label className="mb-1 block text-xs font-medium">{t("settings.apiBaseUrl")}</label>
+            <input
+              type="text"
+              value={apiBaseUrl}
+              onChange={(e) => setApiBaseUrl(e.target.value)}
+              placeholder={preset?.default_url || "https://api.example.com/v1"}
+              className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          {/* Model Selection */}
+          <div>
+            <label className="mb-1 block text-xs font-medium">{t("settings.defaultModel")}</label>
+            {models.length > 0 ? (
+              <select
+                value={defaultModel}
+                onChange={(e) => setDefaultModel(e.target.value)}
                 className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium">{t("settings.defaultModel")}</label>
+              >
+                {models.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.tier}) - {m.context_window >= 1000000 ? `${(m.context_window / 1000000).toFixed(0)}M` : `${(m.context_window / 1000).toFixed(0)}K`} ctx
+                  </option>
+                ))}
+              </select>
+            ) : (
               <input
                 type="text"
                 value={defaultModel}
                 onChange={(e) => setDefaultModel(e.target.value)}
+                placeholder="model-name"
                 className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
-            </div>
-          </div>
-
-          {/* Advanced Settings */}
-          <div className="rounded-md border border-input">
-            <button
-              type="button"
-              onClick={() => setShowAdvanced((v) => !v)}
-              className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground"
-            >
-              <span>{t("settings.advancedSettings")}</span>
-              <span className="text-[10px]">{showAdvanced ? "\u25B2" : "\u25BC"}</span>
-            </button>
-            {showAdvanced && (
-              <div className="space-y-3 border-t px-3 py-3">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium">{t("settings.anthropicVersion")}</label>
-                    <input
-                      type="text"
-                      value={anthropicVersion}
-                      onChange={(e) => setAnthropicVersion(e.target.value)}
-                      className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium">{t("settings.apiFormat")}</label>
-                    <select
-                      value={apiFormat}
-                      onChange={(e) => setApiFormat(e.target.value)}
-                      className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    >
-                      <option value="anthropic">Anthropic (Standard)</option>
-                      <option value="claude-code">Claude Code Compatible</option>
-                      <option value="openai">OpenAI Compatible</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-xs font-medium">{t("settings.forceStream")}</label>
-                    <p className="text-[10px] text-muted-foreground">{t("settings.forceStreamDesc")}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setForceStream((v) => !v)}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                      forceStream ? "bg-green-500" : "bg-gray-600"
-                    }`}
-                  >
-                    <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                      forceStream ? "translate-x-4" : "translate-x-0"
-                    }`} />
-                  </button>
-                </div>
-                {/* Extra Headers */}
-                <div>
-                  <div className="mb-1 flex items-center justify-between">
-                    <label className="text-xs font-medium">{t("settings.extraHeaders")}</label>
-                    <button
-                      type="button"
-                      onClick={() => setExtraHeaders((h) => [...h, { key: "", value: "" }])}
-                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                    >
-                      <Plus className="h-3 w-3" /> {t("settings.addHeader")}
-                    </button>
-                  </div>
-                  {extraHeaders.map((h, i) => (
-                    <div key={i} className="mb-1 flex gap-1">
-                      <input
-                        type="text"
-                        value={h.key}
-                        onChange={(e) => {
-                          const updated = [...extraHeaders];
-                          updated[i] = { ...updated[i], key: e.target.value };
-                          setExtraHeaders(updated);
-                        }}
-                        placeholder="Header name"
-                        className="flex-1 rounded-md border border-input bg-secondary px-2 py-1 text-xs focus:border-primary focus:outline-none"
-                      />
-                      <input
-                        type="text"
-                        value={h.value}
-                        onChange={(e) => {
-                          const updated = [...extraHeaders];
-                          updated[i] = { ...updated[i], value: e.target.value };
-                          setExtraHeaders(updated);
-                        }}
-                        placeholder="Value"
-                        className="flex-1 rounded-md border border-input bg-secondary px-2 py-1 text-xs focus:border-primary focus:outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setExtraHeaders((headers) => headers.filter((_, idx) => idx !== i))}
-                        className="rounded-md p-1 text-muted-foreground hover:text-destructive"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
             )}
           </div>
 
           {/* Test result */}
           {testResult && (
-            <div className={`flex items-center gap-2 rounded-md p-2 text-xs ${testResult.success ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"}`}>
-              {testResult.success ? <CheckCircle className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
-              {testResult.message}
+            <div className={`rounded-md p-3 text-xs ${testResult.success ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"}`}>
+              <div className="flex items-center gap-2">
+                {testResult.success ? <CheckCircle className="h-3.5 w-3.5 shrink-0" /> : <XCircle className="h-3.5 w-3.5 shrink-0" />}
+                <span className="font-medium">{testResult.success ? t("settings.testSuccess") : t("settings.testFailed")}</span>
+              </div>
+              <p className="mt-1 break-all">{testResult.message}</p>
             </div>
           )}
         </div>
@@ -1050,7 +872,7 @@ function ProviderEditModal({
   );
 }
 
-// ===== Provider Card (per-engine) =====
+// ===== Provider Card =====
 
 function ProviderCard({
   provider,
@@ -1135,68 +957,43 @@ function ProviderCard({
   );
 }
 
-// ===== Engine Section =====
+// ===== Preset Card Grid =====
 
-function EngineSection({
-  engineConfig,
-  providers,
-  onAdd,
-  onEdit,
-  onRemove,
-  onToggle,
+function PresetCardGrid({
+  presets,
+  onSelect,
 }: {
-  readonly engineConfig: EngineConfig;
-  readonly providers: readonly AiProvider[];
-  readonly onAdd: () => void;
-  readonly onEdit: (provider: AiProvider) => void;
-  readonly onRemove: (id: string) => void;
-  readonly onToggle: (provider: AiProvider) => void;
+  readonly presets: readonly ProviderPreset[];
+  readonly onSelect: (preset: ProviderPreset) => void;
 }) {
   const { t } = useI18n();
-  const engineProviders = providers.filter((p) => p.engine === engineConfig.id);
-  const activeCount = engineProviders.filter((p) => p.enabled).length;
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-card p-5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className={`h-3 w-3 rounded-full ${engineConfig.dotColor}`} />
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-foreground">{t(engineConfig.labelKey as never)}</h3>
-              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${engineConfig.color}`}>
-                {engineProviders.length} providers
-              </span>
-              {activeCount > 0 && (
-                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900 dark:text-green-200">
-                  {activeCount} active
-                </span>
-              )}
+    <div className="space-y-3">
+      <h3 className="text-sm font-semibold text-foreground">{t("settings.addProvider")}</h3>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {presets.map((preset) => (
+          <button
+            key={preset.id}
+            onClick={() => onSelect(preset)}
+            className="group flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 text-center transition-all hover:border-primary/50 hover:shadow-md"
+          >
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-lg transition-transform group-hover:scale-110"
+              style={{ backgroundColor: `${preset.icon_color}20`, color: preset.icon_color }}
+            >
+              <Cpu className="h-5 w-5" />
             </div>
-            <p className="text-xs text-muted-foreground">{t(engineConfig.descKey as never)}</p>
-          </div>
-        </div>
-        <button
-          onClick={onAdd}
-          className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          <Plus className="h-3 w-3" />
-          {t("settings.addProvider")}
-        </button>
+            <span className="text-sm font-medium text-foreground">{preset.name}</span>
+            <span className="text-[10px] text-muted-foreground line-clamp-2">{preset.description}</span>
+            {preset.models.length > 0 && (
+              <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+                {preset.models.length} models
+              </span>
+            )}
+          </button>
+        ))}
       </div>
-
-      {engineProviders.length > 0 ? (
-        <div className="space-y-2">
-          {engineProviders.map((p) => (
-            <ProviderCard key={p.id} provider={p} onEdit={onEdit} onRemove={onRemove} onToggle={onToggle} />
-          ))}
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 rounded-md border border-dashed border-input p-3 text-xs text-muted-foreground">
-          <AlertCircle className="h-3.5 w-3.5" />
-          {t("settings.noProvidersForEngine")}
-        </div>
-      )}
     </div>
   );
 }
@@ -1210,15 +1007,19 @@ function ProvidersTab({
 }) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
-  const [activeEngine, setActiveEngine] = useState<EngineTab>("claude");
   const [editingProvider, setEditingProvider] = useState<AiProvider | null>(null);
-  const [showAddForEngine, setShowAddForEngine] = useState<EngineTab | null>(null);
+  const [selectedPreset, setSelectedPreset] = useState<ProviderPreset | null>(null);
+
+  const { data: presets } = useQuery({
+    queryKey: ["provider-presets"],
+    queryFn: getProviderPresets,
+  });
 
   const addProviderMutation = useMutation({
     mutationFn: (provider: AiProvider) => addProvider(provider),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings"] });
-      setShowAddForEngine(null);
+      setSelectedPreset(null);
       setEditingProvider(null);
     },
   });
@@ -1251,6 +1052,13 @@ function ProvidersTab({
     }
   };
 
+  const handleEditProvider = (provider: AiProvider) => {
+    setEditingProvider(provider);
+    // Find matching preset for model dropdown
+    const matchingPreset = (presets ?? []).find((p) => p.provider_type === provider.provider_type);
+    setSelectedPreset(matchingPreset ?? null);
+  };
+
   const providers = settings?.providers ?? [];
 
   return (
@@ -1261,182 +1069,53 @@ function ProvidersTab({
         isImporting={addProviderMutation.isPending}
       />
 
-      {/* Engine Tabs */}
-      <div className="flex gap-1 rounded-lg bg-secondary p-1">
-        {ENGINE_CONFIGS.map((ec) => {
-          const count = providers.filter((p) => p.engine === ec.id).length;
-          return (
-            <button
-              key={ec.id}
-              onClick={() => setActiveEngine(ec.id)}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                activeEngine === ec.id
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <span className={`inline-flex h-2 w-2 rounded-full ${ec.dotColor}`} />
-              {t(ec.labelKey as never)}
-              {count > 0 && (
-                <span className={`rounded-full px-1.5 py-0.5 text-xs ${
-                  activeEngine === ec.id ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
-                }`}>
-                  {count}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {/* Configured Providers */}
+      {providers.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-foreground">
+            {t("settings.aiProviders")} ({providers.length})
+          </h3>
+          <div className="space-y-2">
+            {providers.map((p) => (
+              <ProviderCard
+                key={p.id}
+                provider={p}
+                onEdit={handleEditProvider}
+                onRemove={(id) => removeProviderMutation.mutate(id)}
+                onToggle={handleToggle}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
-      {/* Active Engine Section */}
-      {ENGINE_CONFIGS.filter((ec) => ec.id === activeEngine).map((ec) => (
-        <EngineSection
-          key={ec.id}
-          engineConfig={ec}
-          providers={providers}
-          onAdd={() => { setEditingProvider(null); setShowAddForEngine(ec.id); }}
-          onEdit={(p) => { setShowAddForEngine(null); setEditingProvider(p); }}
-          onRemove={(id) => removeProviderMutation.mutate(id)}
-          onToggle={handleToggle}
+      {providers.length === 0 && (
+        <div className="flex items-center gap-2 rounded-md border border-dashed border-input p-4 text-sm text-muted-foreground">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {t("settings.noProviders")}
+        </div>
+      )}
+
+      {/* Preset Grid */}
+      {presets && (
+        <PresetCardGrid
+          presets={presets}
+          onSelect={(preset) => {
+            setEditingProvider(null);
+            setSelectedPreset(preset);
+          }}
         />
-      ))}
+      )}
 
       {/* Edit / Add Modal */}
-      {(editingProvider !== null || showAddForEngine !== null) && (
+      {(editingProvider !== null || selectedPreset !== null) && (
         <ProviderEditModal
           provider={editingProvider}
-          engine={editingProvider?.engine ?? showAddForEngine ?? activeEngine}
+          preset={selectedPreset}
           onSave={handleSave}
-          onClose={() => { setEditingProvider(null); setShowAddForEngine(null); }}
+          onClose={() => { setEditingProvider(null); setSelectedPreset(null); }}
           isPending={addProviderMutation.isPending || updateProviderMutation.isPending}
         />
-      )}
-
-      {/* Runtime Config Preview */}
-      <ConfigPreviewPanel settings={settings} />
-    </div>
-  );
-}
-
-// ===== Config Preview Panel =====
-
-function ConfigPreviewPanel({
-  settings,
-}: {
-  readonly settings: AppSettings | undefined;
-}) {
-  const { t } = useI18n();
-  const [configPreview, setConfigPreview] = useState<ResolvedRuntimeConfig | null>(null);
-  const [configError, setConfigError] = useState<string | null>(null);
-  const [isResolving, setIsResolving] = useState(false);
-  const [showJson, setShowJson] = useState(false);
-
-  const handleResolve = async () => {
-    if (!settings) return;
-    setIsResolving(true);
-    setConfigError(null);
-    try {
-      const result = await resolveRuntimeConfig(settings.default_engine, settings.default_model);
-      setConfigPreview(result);
-    } catch (err) {
-      setConfigError(String(err));
-      setConfigPreview(null);
-    } finally {
-      setIsResolving(false);
-    }
-  };
-
-  const jsonText = configPreview
-    ? JSON.stringify({
-        engine: configPreview.engine,
-        model_tier: configPreview.model_tier,
-        resolved_model: configPreview.resolved_model,
-        provider_name: configPreview.provider_name,
-        provider_type: configPreview.provider_type,
-        api_base_url: configPreview.api_base_url,
-        api_key: configPreview.api_key_preview,
-        source: configPreview.source,
-      }, null, 2)
-    : "";
-
-  return (
-    <div className="space-y-3 rounded-lg border border-border bg-card p-5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Terminal className="h-4 w-4 text-muted-foreground" />
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">
-              {t("dashboard.configStrip")}
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              {settings ? `${settings.default_engine} / ${settings.default_model}` : ""}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={handleResolve}
-          disabled={isResolving || !settings}
-          className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-        >
-          {isResolving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
-          {isResolving ? t("settings.detecting") : "Resolve Config"}
-        </button>
-      </div>
-
-      {configError && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          <span>{configError}</span>
-        </div>
-      )}
-
-      {configPreview && (
-        <div className="space-y-2">
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-md border border-input bg-secondary p-2.5">
-              <p className="text-xs text-muted-foreground">{t("dashboard.engine")}</p>
-              <p className="text-sm font-semibold">{configPreview.engine}</p>
-            </div>
-            <div className="rounded-md border border-input bg-secondary p-2.5">
-              <p className="text-xs text-muted-foreground">Resolved Model</p>
-              <p className="text-sm font-semibold">{configPreview.resolved_model}</p>
-            </div>
-            <div className="rounded-md border border-input bg-secondary p-2.5">
-              <p className="text-xs text-muted-foreground">{t("dashboard.provider")}</p>
-              <p className="text-sm font-semibold">{configPreview.provider_name}</p>
-            </div>
-            <div className="rounded-md border border-input bg-secondary p-2.5">
-              <p className="text-xs text-muted-foreground">Endpoint</p>
-              <p className="truncate text-sm font-semibold">{configPreview.api_base_url}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowJson((v) => !v)}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-            >
-              <Eye className="h-3 w-3" />
-              {showJson ? "Hide JSON" : "Show JSON"}
-            </button>
-            {showJson && (
-              <button
-                onClick={() => navigator.clipboard.writeText(jsonText)}
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <Upload className="h-3 w-3" />
-                Copy
-              </button>
-            )}
-          </div>
-
-          {showJson && (
-            <pre className="overflow-x-auto rounded-md border border-input bg-secondary p-3 text-xs font-mono text-foreground">
-              {jsonText}
-            </pre>
-          )}
-        </div>
       )}
     </div>
   );

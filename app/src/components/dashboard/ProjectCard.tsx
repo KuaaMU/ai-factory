@@ -91,7 +91,7 @@ export function ProjectCard({ project }: { readonly project: Project }) {
   const engineColor = ENGINE_COLORS[effectiveEngine] ?? "bg-muted text-muted-foreground";
 
   const startMutation = useMutation({
-    mutationFn: () => startLoop(project.output_dir, effectiveEngine, effectiveModel),
+    mutationFn: () => startLoop(project.output_dir, effectiveEngine || "auto", effectiveModel || "auto"),
     onSuccess: () => {
       setError(null);
       queryClient.invalidateQueries({ queryKey: ["status", project.output_dir] });
